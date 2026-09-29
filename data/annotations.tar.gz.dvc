@@ -1,0 +1,5 @@
+outs:
+- md5: 95a8c909bbe2e81eed6a22bccdf3f68f
+  size: 19173078
+  hash: md5
+  path: annotations.tar.gz
