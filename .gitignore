@@ -1,0 +1,35 @@
+.venv/
+
+# Python caches and test/coverage output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build and packaging output
+build/
+dist/
+*.egg-info/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local datasets and model artifacts
+data/*.tar.gz
+models/
+checkpoints/
+runs/
+logs/
