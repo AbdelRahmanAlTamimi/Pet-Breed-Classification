@@ -28,7 +28,11 @@ dist/
 .ipynb_checkpoints/
 
 # Local datasets and model artifacts
-data/*.tar.gz
+data/raw/*
+/data/corrupted/
+/data/processed/split_index.json
+/data/processed/corruption_manifest.json
+/data/processed/manifest.json
 models/
 checkpoints/
 runs/
