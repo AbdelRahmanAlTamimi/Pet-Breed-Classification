@@ -30,9 +30,7 @@ dist/
 # Local datasets and model artifacts
 data/raw/*
 /data/corrupted/
-/data/processed/split_index.json
-/data/processed/corruption_manifest.json
-/data/processed/manifest.json
+/data/processed/*
 models/
 checkpoints/
 runs/

@@ -4,7 +4,7 @@ from pathlib import Path
 # src/pet_breed_classification/config.py -> parents[2] is the project root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_ROOT = PROJECT_ROOT / "data"
-RAW_DIR = DATA_ROOT / "raw" / "oxford-iiit-pet"
+RAW_DIR = DATA_ROOT / "raw"
 
 
 @dataclass(frozen=True)
