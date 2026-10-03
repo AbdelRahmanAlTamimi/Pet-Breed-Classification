@@ -4,7 +4,7 @@ from pathlib import Path
 # src/pet_breed_classification/config.py -> parents[2] is the project root
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_ROOT = PROJECT_ROOT / "data"
-RAW_DIR = DATA_ROOT / "raw" / "oxford-iiit-pet"
+RAW_DIR = DATA_ROOT / "raw"
 
 
 @dataclass(frozen=True)
@@ -16,8 +16,7 @@ class Config:
     LABEL_MAP_PATH: Path = DATA_ROOT / "label_map.json"
     SPLIT_INDEX_PATH: Path = DATA_ROOT / "processed" / "split_index.json"
     CORRUPTED_DIR: Path = DATA_ROOT / "corrupted"
-    CORRUPTION_MANIFEST_PATH: Path = DATA_ROOT / "processed" / "corruption_manifest.json"
-    MANIFEST_PATH: Path = DATA_ROOT / "processed" / "manifest.json"
+    MANIFEST_PATH: Path = DATA_ROOT / "manifest.json"
 
     # Reproducibility
     SEED: int = 42

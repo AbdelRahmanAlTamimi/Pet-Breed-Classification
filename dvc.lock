@@ -1,0 +1,85 @@
+schema: '2.0'
+stages:
+  generate_corruptions:
+    cmd: uv run python -m pet_breed_classification.data.corruptions
+    deps:
+    - path: data/label_map.json
+      hash: md5
+      md5: 5b10ff50faeba89de7c011b1ecc93d39
+      size: 3182
+    - path: data/processed/split_index.json
+      hash: md5
+      md5: aca97eb5899f49f1859c75c481f66b87
+      size: 170179
+    - path: data/raw/images
+      hash: md5
+      md5: 277f608c70d7bd7991e0cd5f5cc845c6.dir
+      size: 796502375
+      nfiles: 7393
+    - path: src/pet_breed_classification/config.py
+      hash: md5
+      md5: f51f2bb7adc23dd521b481cda617a7ba
+      size: 1095
+    - path: src/pet_breed_classification/data/corruptions.py
+      hash: md5
+      md5: d42a9152c4ed1b2144df18b2614f296c
+      size: 8965
+    outs:
+    - path: data/corrupted
+      hash: md5
+      md5: 53d376ac4ce59dcf5ac4c0d0da3f71ee.dir
+      size: 3321938892
+      nfiles: 66042
+  build_manifest:
+    cmd: uv run python -m pet_breed_classification.data.build_manifest
+    deps:
+    - path: data/corrupted
+      hash: md5
+      md5: 53d376ac4ce59dcf5ac4c0d0da3f71ee.dir
+      size: 3321938892
+      nfiles: 66042
+    - path: data/label_map.json
+      hash: md5
+      md5: 5b10ff50faeba89de7c011b1ecc93d39
+      size: 3182
+    - path: data/processed/split_index.json
+      hash: md5
+      md5: aca97eb5899f49f1859c75c481f66b87
+      size: 170179
+    - path: data/raw/images
+      hash: md5
+      md5: 277f608c70d7bd7991e0cd5f5cc845c6.dir
+      size: 796502375
+      nfiles: 7393
+    - path: src/pet_breed_classification/config.py
+      hash: md5
+      md5: f51f2bb7adc23dd521b481cda617a7ba
+      size: 1095
+    - path: src/pet_breed_classification/data/build_manifest.py
+      hash: md5
+      md5: 7de20f4a385234aa47718a4dc626151c
+      size: 3897
+    - path: src/pet_breed_classification/data/corruptions.py
+      hash: md5
+      md5: d42a9152c4ed1b2144df18b2614f296c
+      size: 8965
+    outs:
+    - path: data/manifest.json
+      hash: md5
+      md5: a8fdb39126995a46a33a910f316e53aa
+      size: 22964628
+  validate_manifest:
+    cmd: uv run python -m pet_breed_classification.data.validate_manifest
+    deps:
+    - path: data/label_map.json
+      hash: md5
+      md5: 5b10ff50faeba89de7c011b1ecc93d39
+      size: 3182
+    - path: data/manifest.json
+      hash: md5
+      md5: a8fdb39126995a46a33a910f316e53aa
+      size: 22964628
+    - path: src/pet_breed_classification/data/validate_manifest.py
+      hash: md5
+      md5: c392d2f4bff97e1ecd3dfbfe5babd696
+      size: 3677

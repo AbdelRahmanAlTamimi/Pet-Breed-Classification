@@ -1,0 +1,189 @@
+{
+  "classes": [
+    {
+      "index": 0,
+      "breed": "Abyssinian",
+      "species": "cat"
+    },
+    {
+      "index": 1,
+      "breed": "american_bulldog",
+      "species": "dog"
+    },
+    {
+      "index": 2,
+      "breed": "american_pit_bull_terrier",
+      "species": "dog"
+    },
+    {
+      "index": 3,
+      "breed": "basset_hound",
+      "species": "dog"
+    },
+    {
+      "index": 4,
+      "breed": "beagle",
+      "species": "dog"
+    },
+    {
+      "index": 5,
+      "breed": "Bengal",
+      "species": "cat"
+    },
+    {
+      "index": 6,
+      "breed": "Birman",
+      "species": "cat"
+    },
+    {
+      "index": 7,
+      "breed": "Bombay",
+      "species": "cat"
+    },
+    {
+      "index": 8,
+      "breed": "boxer",
+      "species": "dog"
+    },
+    {
+      "index": 9,
+      "breed": "British_Shorthair",
+      "species": "cat"
+    },
+    {
+      "index": 10,
+      "breed": "chihuahua",
+      "species": "dog"
+    },
+    {
+      "index": 11,
+      "breed": "Egyptian_Mau",
+      "species": "cat"
+    },
+    {
+      "index": 12,
+      "breed": "english_cocker_spaniel",
+      "species": "dog"
+    },
+    {
+      "index": 13,
+      "breed": "english_setter",
+      "species": "dog"
+    },
+    {
+      "index": 14,
+      "breed": "german_shorthaired",
+      "species": "dog"
+    },
+    {
+      "index": 15,
+      "breed": "great_pyrenees",
+      "species": "dog"
+    },
+    {
+      "index": 16,
+      "breed": "havanese",
+      "species": "dog"
+    },
+    {
+      "index": 17,
+      "breed": "japanese_chin",
+      "species": "dog"
+    },
+    {
+      "index": 18,
+      "breed": "keeshond",
+      "species": "dog"
+    },
+    {
+      "index": 19,
+      "breed": "leonberger",
+      "species": "dog"
+    },
+    {
+      "index": 20,
+      "breed": "Maine_Coon",
+      "species": "cat"
+    },
+    {
+      "index": 21,
+      "breed": "miniature_pinscher",
+      "species": "dog"
+    },
+    {
+      "index": 22,
+      "breed": "newfoundland",
+      "species": "dog"
+    },
+    {
+      "index": 23,
+      "breed": "Persian",
+      "species": "cat"
+    },
+    {
+      "index": 24,
+      "breed": "pomeranian",
+      "species": "dog"
+    },
+    {
+      "index": 25,
+      "breed": "pug",
+      "species": "dog"
+    },
+    {
+      "index": 26,
+      "breed": "Ragdoll",
+      "species": "cat"
+    },
+    {
+      "index": 27,
+      "breed": "Russian_Blue",
+      "species": "cat"
+    },
+    {
+      "index": 28,
+      "breed": "saint_bernard",
+      "species": "dog"
+    },
+    {
+      "index": 29,
+      "breed": "samoyed",
+      "species": "dog"
+    },
+    {
+      "index": 30,
+      "breed": "scottish_terrier",
+      "species": "dog"
+    },
+    {
+      "index": 31,
+      "breed": "shiba_inu",
+      "species": "dog"
+    },
+    {
+      "index": 32,
+      "breed": "Siamese",
+      "species": "cat"
+    },
+    {
+      "index": 33,
+      "breed": "Sphynx",
+      "species": "cat"
+    },
+    {
+      "index": 34,
+      "breed": "staffordshire_bull_terrier",
+      "species": "dog"
+    },
+    {
+      "index": 35,
+      "breed": "wheaten_terrier",
+      "species": "dog"
+    },
+    {
+      "index": 36,
+      "breed": "yorkshire_terrier",
+      "species": "dog"
+    }
+  ]
+}
