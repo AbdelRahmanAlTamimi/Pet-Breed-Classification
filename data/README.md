@@ -1,14 +1,14 @@
 # Oxford-IIIT Pet Corruption Suite
 
-Run the generator with:
+Run the pipeline with:
 
 ```text
-uv run python -m pet_breed_classification.corruptions
+dvc repro
 ```
 
 The suite creates three severities of each corruption for the official test
-split. Outputs are written below `data/corrupted/` and described by
-`data/processed/corruption_manifest.json`.
+split. Outputs are written below `data/corrupted/`. The combined manifest at
+`data/manifest.json` contains both clean source records and corrupted records.
 
 | Corruption | Severity 1 | Severity 2 | Severity 3 |
 |---|---:|---:|---:|

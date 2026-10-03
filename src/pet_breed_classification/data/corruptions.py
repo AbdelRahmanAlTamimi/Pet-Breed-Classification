@@ -12,9 +12,9 @@ order is deterministic regardless of the number of workers.
 
 Reads:  cfg.SPLIT_INDEX_PATH and cfg.LABEL_MAP_PATH
 Writes: cfg.CORRUPTED_DIR/<corruption>/severity_<n>/<breed>/<image_id>.jpg
-        cfg.CORRUPTION_MANIFEST_PATH (one record per generated image)
+        cfg.CORRUPTED_DIR (one generated image per corruption and severity)
 
-Run:    uv run python -m pet_breed_classification.corruptions
+Run:    uv run python -m pet_breed_classification.data.corruptions
 """
 
 import io
@@ -30,7 +30,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 
-from .config import cfg
+from ..config import cfg
 
 SEVERITIES = (1, 2, 3)
 
@@ -232,12 +232,7 @@ def main() -> None:
     output_records = generate_corrupted_set(test_records, num_workers)
     elapsed = time.perf_counter() - start
 
-    cfg.CORRUPTION_MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
-    cfg.CORRUPTION_MANIFEST_PATH.write_text(
-        json.dumps(output_records, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    print(f"\nWrote {len(output_records)} records to {cfg.CORRUPTION_MANIFEST_PATH}")
+    print(f"\nGenerated {len(output_records)} corrupted images")
     print(f"Elapsed: {elapsed:.1f}s ({len(output_records) / elapsed:.1f} images/s)")
 
     print("Sample severity 3 paths:")

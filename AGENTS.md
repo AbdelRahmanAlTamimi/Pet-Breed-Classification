@@ -45,3 +45,4 @@ where they are more specific than the spec, they win.
   Model selection, calibration and thresholds use `val` only.
 - Report real numbers only (see the honesty clause in the spec).
 - Don't create git commits; the user reviews and commits.
+- before any step check `docs/project_spec.md`

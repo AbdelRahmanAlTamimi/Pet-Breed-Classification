@@ -16,8 +16,7 @@ class Config:
     LABEL_MAP_PATH: Path = DATA_ROOT / "label_map.json"
     SPLIT_INDEX_PATH: Path = DATA_ROOT / "processed" / "split_index.json"
     CORRUPTED_DIR: Path = DATA_ROOT / "corrupted"
-    CORRUPTION_MANIFEST_PATH: Path = DATA_ROOT / "processed" / "corruption_manifest.json"
-    MANIFEST_PATH: Path = DATA_ROOT / "processed" / "manifest.json"
+    MANIFEST_PATH: Path = DATA_ROOT / "manifest.json"
 
     # Reproducibility
     SEED: int = 42

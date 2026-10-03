@@ -4,7 +4,7 @@ from pathlib import Path
 
 from sklearn.model_selection import train_test_split
 
-from .config import cfg
+from ..config import cfg
 
 Record = tuple[str, str, int, str]
 

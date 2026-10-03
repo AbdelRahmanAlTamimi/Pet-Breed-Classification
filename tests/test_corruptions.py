@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from pet_breed_classification.corruptions import (
+from pet_breed_classification.data.corruptions import (
     CORRUPTIONS,
     DOWNSCALE_UPSCALE_SIZE,
     apply_downscale_upscale,
