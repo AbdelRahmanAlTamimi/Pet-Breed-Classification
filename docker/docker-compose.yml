@@ -1,0 +1,9 @@
+services:
+  api:
+    # Pulls the versioned image by default. For a local build, use PETBREED_IMAGE=pet-breed:0.1.0.
+    image: abdelrahmanaltamimi/pet-breed:latest
+    environment:
+      PETBREED_LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

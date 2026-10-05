@@ -28,14 +28,13 @@ dist/
 .ipynb_checkpoints/
 
 # Local datasets and model artifacts
+# Only artifacts/resnet50_training_history.json is tracked; it is force-added.
+artifacts/
 data/raw/*
+!data/raw/*.dvc
 /data/corrupted/
 /data/processed/*.json
-
-/data/manifest.json
 models/
 checkpoints/
 runs/
 logs/
-
-artifacts/*.pt

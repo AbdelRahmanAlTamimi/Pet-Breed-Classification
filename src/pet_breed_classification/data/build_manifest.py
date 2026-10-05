@@ -1,12 +1,17 @@
 """Build the combined clean and corrupted image manifest."""
 
 import json
+import logging
 from pathlib import Path
 
 from PIL import Image
 
 from ..config import cfg
+from ..logging_conf import setup_logging
+from . import _load_classes
 from .corruptions import CORRUPTIONS
+
+logger = logging.getLogger(__name__)
 
 REQUIRED_FIELDS = {
     "image_id",
@@ -31,14 +36,9 @@ def _image_size(path: Path) -> tuple[int, int]:
         return image.size
 
 
-def _load_label_map() -> dict[str, dict[str, object]]:
-    label_map = json.loads(cfg.LABEL_MAP_PATH.read_text(encoding="utf-8"))
-    return {entry["breed"]: entry for entry in label_map["classes"]}
-
-
 def _clean_records() -> list[dict[str, object]]:
     split_index = json.loads(cfg.SPLIT_INDEX_PATH.read_text(encoding="utf-8"))
-    labels = _load_label_map()
+    labels = {entry["breed"]: entry for entry in _load_classes()}
     records = []
 
     for split in ("train", "val", "test"):
@@ -66,7 +66,7 @@ def _clean_records() -> list[dict[str, object]]:
 
 
 def _corrupted_records() -> list[dict[str, object]]:
-    labels = _load_label_map()
+    labels = {entry["breed"]: entry for entry in _load_classes()}
     records = []
 
     for path in sorted(cfg.CORRUPTED_DIR.glob("*/severity_*/*/*")):
@@ -115,6 +115,7 @@ def build_manifest() -> list[dict[str, object]]:
 
 
 def main() -> None:
+    setup_logging()
     records = build_manifest()
     if not records:
         raise ValueError("No images found while building the manifest")
@@ -127,7 +128,7 @@ def main() -> None:
         json.dumps(records, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"Wrote {len(records)} records to {cfg.MANIFEST_PATH}")
+    logger.info("Wrote %d records to %s", len(records), cfg.MANIFEST_PATH)
 
 
 if __name__ == "__main__":

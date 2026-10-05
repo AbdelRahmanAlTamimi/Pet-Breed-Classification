@@ -1,0 +1,11 @@
+.git
+.venv
+data/
+notebooks/
+tests/
+reports/
+__pycache__
+*.ipynb
+artifacts/*
+!artifacts/model.onnx
+!artifacts/model_meta.json

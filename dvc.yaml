@@ -2,7 +2,7 @@ stages:
   generate_corruptions:
     cmd: uv run python -m pet_breed_classification.data.corruptions
     deps:
-      - data/processed/split_index.json
+      - data/split_index.json
       - data/label_map.json
       - data/raw/images
       - src/pet_breed_classification/config.py
@@ -13,7 +13,7 @@ stages:
   build_manifest:
     cmd: uv run python -m pet_breed_classification.data.build_manifest
     deps:
-      - data/processed/split_index.json
+      - data/split_index.json
       - data/label_map.json
       - data/raw/images
       - data/corrupted
@@ -21,11 +21,11 @@ stages:
       - src/pet_breed_classification/data/build_manifest.py
       - src/pet_breed_classification/data/corruptions.py
     outs:
-      - data/manifest.json
+      - data/processed/manifest.json
 
   validate_manifest:
-    cmd: uv run python -m pet_breed_classification.data.validate_manifest
+    cmd: uv run pytest --no-cov tests/test_manifest.py
     deps:
-      - data/manifest.json
+      - data/processed/manifest.json
       - data/label_map.json
-      - src/pet_breed_classification/data/validate_manifest.py
+      - tests/test_manifest.py

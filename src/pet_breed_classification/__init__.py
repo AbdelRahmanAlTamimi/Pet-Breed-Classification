@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from pet-breed-classification!")
+"""Pet breed classification package."""

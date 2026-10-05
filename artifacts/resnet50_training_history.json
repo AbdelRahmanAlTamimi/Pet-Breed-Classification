@@ -8,7 +8,7 @@
     "val_loss": 0.6404754260311956,
     "val_accuracy": 0.8831521739130435,
     "val_macro_f1": 0.8797503950276341,
-    "elapsed_seconds": 20.991170362000048
+    "elapsed_seconds": 11.170348253000157
   },
   {
     "epoch": 2,
@@ -19,7 +19,7 @@
     "val_loss": 0.31456415549568506,
     "val_accuracy": 0.9415760869565217,
     "val_macro_f1": 0.9414764346086553,
-    "elapsed_seconds": 9.781487264000134
+    "elapsed_seconds": 10.223784732999775
   },
   {
     "epoch": 3,
@@ -30,7 +30,7 @@
     "val_loss": 0.24143603184948798,
     "val_accuracy": 0.9375,
     "val_macro_f1": 0.9380545402524518,
-    "elapsed_seconds": 9.843699336999634
+    "elapsed_seconds": 10.389779983999688
   },
   {
     "epoch": 4,
@@ -41,7 +41,7 @@
     "val_loss": 0.2214022265828174,
     "val_accuracy": 0.9375,
     "val_macro_f1": 0.9375568462561327,
-    "elapsed_seconds": 9.955402143000356
+    "elapsed_seconds": 10.314280048
   },
   {
     "epoch": 5,
@@ -52,7 +52,7 @@
     "val_loss": 0.20961987972259521,
     "val_accuracy": 0.936141304347826,
     "val_macro_f1": 0.9366644491974796,
-    "elapsed_seconds": 9.904985870000019
+    "elapsed_seconds": 10.418024620999859
   },
   {
     "epoch": 6,
@@ -63,7 +63,7 @@
     "val_loss": 0.21301499462645987,
     "val_accuracy": 0.936141304347826,
     "val_macro_f1": 0.9367570334080444,
-    "elapsed_seconds": 9.893034144000012
+    "elapsed_seconds": 10.240018009999403
   },
   {
     "epoch": 7,
@@ -74,7 +74,7 @@
     "val_loss": 0.20317041938719543,
     "val_accuracy": 0.936141304347826,
     "val_macro_f1": 0.9366669313419567,
-    "elapsed_seconds": 9.964378448999923
+    "elapsed_seconds": 10.55377858400061
   },
   {
     "epoch": 8,
@@ -85,7 +85,7 @@
     "val_loss": 0.19675701662250186,
     "val_accuracy": 0.9402173913043478,
     "val_macro_f1": 0.9406680610316435,
-    "elapsed_seconds": 9.827885649000564
+    "elapsed_seconds": 10.826461979999294
   },
   {
     "epoch": 9,
@@ -96,7 +96,7 @@
     "val_loss": 0.19919281128955924,
     "val_accuracy": 0.9442934782608695,
     "val_macro_f1": 0.944945109159466,
-    "elapsed_seconds": 9.814576734999719
+    "elapsed_seconds": 10.798541275999924
   },
   {
     "epoch": 10,
@@ -107,6 +107,6 @@
     "val_loss": 0.19556028687435648,
     "val_accuracy": 0.9442934782608695,
     "val_macro_f1": 0.9448700015833901,
-    "elapsed_seconds": 9.755301723999764
+    "elapsed_seconds": 10.63174959800017
   }
 ]
