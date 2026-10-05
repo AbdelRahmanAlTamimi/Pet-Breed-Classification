@@ -15,6 +15,7 @@ from pet_breed_classification.model import (
     load_checkpoint,
     save_checkpoint,
 )
+from pet_breed_classification.predict import PetBreedPredictor
 from pet_breed_classification.transforms import build_eval_transform
 
 
@@ -50,25 +51,45 @@ def test_random_checkpoint_pytorch_onnx_parity(tmp_path: Path) -> None:
     not cfg.MODEL_PATH.is_file()
     or not cfg.ONNX_PATH.is_file()
     or not cfg.MODEL_META_PATH.is_file()
-    or not cfg.MANIFEST_PATH.is_file(),
+    or not cfg.MANIFEST_PATH.is_file()
+    or not cfg.IMAGES_DIR.is_dir(),
     reason="real checkpoint, ONNX artifacts, or validation manifest unavailable",
 )
 def test_real_validation_parity() -> None:
     records = load_records("val")[:200]
-    transform = build_eval_transform()
-    batches = []
+    model, checkpoint = load_checkpoint(cfg.MODEL_PATH, torch.device("cpu"))
+    checkpoint_transform = build_eval_transform(checkpoint["eval_transform"])
+    predictor = PetBreedPredictor.load(cfg.ONNX_PATH, cfg.MODEL_META_PATH)
+    images = []
+    checkpoint_batches = []
+    predictor_batches = []
     for record in records:
         with Image.open(cfg.PROJECT_ROOT / str(record["path"])) as image:
-            batches.append(transform(image).numpy())
-    inputs = np.stack(batches).astype(np.float32, copy=False)
+            image_copy = image.copy()
+        images.append(image_copy)
+        checkpoint_batches.append(checkpoint_transform(image_copy).numpy())
+        predictor_batches.append(predictor.transform(image_copy).numpy())
+    checkpoint_inputs = np.stack(checkpoint_batches).astype(np.float32, copy=False)
+    predictor_inputs = np.stack(predictor_batches).astype(np.float32, copy=False)
 
-    model, _ = load_checkpoint(cfg.MODEL_PATH, torch.device("cpu"))
     with torch.inference_mode():
-        torch_logits = model(torch.from_numpy(inputs)).numpy()
-    session = ort.InferenceSession(str(cfg.ONNX_PATH), providers=["CPUExecutionProvider"])
-    onnx_logits = session.run(["logits"], {"images": inputs})[0]
+        torch_probabilities = torch.softmax(
+            model(torch.from_numpy(checkpoint_inputs))
+            / float(checkpoint["temperature"]),
+            dim=1,
+        ).numpy()
+    onnx_logits = predictor.session.run(
+        ["logits"], {predictor.input_name: predictor_inputs}
+    )[0]
+    scaled_logits = onnx_logits / float(predictor.temperature)
+    scaled_logits -= np.max(scaled_logits, axis=1, keepdims=True)
+    onnx_probabilities = np.exp(scaled_logits)
+    onnx_probabilities /= np.sum(onnx_probabilities, axis=1, keepdims=True)
 
     metadata = json.loads(cfg.MODEL_META_PATH.read_text(encoding="utf-8"))
     assert metadata["framework"] == "onnxruntime"
-    assert np.allclose(torch_logits, onnx_logits, atol=1e-4)
-    assert np.array_equal(torch_logits.argmax(axis=1), onnx_logits.argmax(axis=1))
+    assert np.array_equal(
+        torch_probabilities.argmax(axis=1), onnx_probabilities.argmax(axis=1)
+    )
+    assert float(np.max(np.abs(torch_probabilities - onnx_probabilities))) < 1e-4
+    assert len(predictor.predict_batch(images)) == 200

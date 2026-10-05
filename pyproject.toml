@@ -1,7 +1,7 @@
 [project]
 name = "pet-breed-classification"
 version = "0.1.0"
-description = "Add your description here"
+description = "Oxford-IIIT Pet breed classification service"
 readme = "README.md"
 authors = [
     { name = "AbdelRahmanAlTamimi", email = "tamimi6030@gmail.com" }
@@ -18,9 +18,6 @@ dependencies = [
     "torchvision>=0.29.1",
     "uvicorn>=0.54.0",
 ]
-
-[project.scripts]
-pet-breed-classification = "pet_breed_classification:main"
 
 [build-system]
 requires = ["uv_build>=0.12.3,<0.13.0"]

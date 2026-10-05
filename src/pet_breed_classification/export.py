@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import warnings
@@ -13,6 +12,7 @@ import onnx
 import onnxruntime as ort
 import torch
 
+from .artifacts import _sha256
 from .config import cfg
 from .logging_conf import setup_logging
 from .model import load_checkpoint
@@ -24,15 +24,6 @@ OPSET = 17
 def _utc_iso(timestamp: float) -> str:
     """Format a POSIX timestamp as UTC ISO 8601."""
     return datetime.fromtimestamp(timestamp, UTC).isoformat().replace("+00:00", "Z")
-
-
-def _sha256(path: Path) -> str:
-    """Return a file's SHA-256 digest."""
-    digest = hashlib.sha256()
-    with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _prove_dynamic_batch(path: Path) -> None:

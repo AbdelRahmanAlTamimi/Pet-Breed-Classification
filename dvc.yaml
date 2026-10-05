@@ -24,7 +24,7 @@ stages:
       - data/processed/manifest.json
 
   validate_manifest:
-    cmd: uv run pytest tests/test_manifest.py
+    cmd: uv run pytest --no-cov tests/test_manifest.py
     deps:
       - data/processed/manifest.json
       - data/label_map.json

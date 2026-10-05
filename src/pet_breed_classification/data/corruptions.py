@@ -33,6 +33,7 @@ from PIL import Image, ImageEnhance, ImageFilter
 
 from ..config import cfg
 from ..logging_conf import setup_logging
+from . import _load_classes
 
 logger = logging.getLogger(__name__)
 
@@ -113,8 +114,7 @@ def to_relative_posix(path: Path) -> str:
 
 def load_test_records() -> list[dict]:
     split_index = json.loads(cfg.SPLIT_INDEX_PATH.read_text(encoding="utf-8"))
-    label_map = json.loads(cfg.LABEL_MAP_PATH.read_text(encoding="utf-8"))
-    labels = {entry["breed"]: entry for entry in label_map["classes"]}
+    labels = {entry["breed"]: entry for entry in _load_classes()}
 
     records = []
     for image_id in sorted(split_index["test"]):

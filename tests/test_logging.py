@@ -1,19 +1,11 @@
 import io
 import json
 import logging
-from io import BytesIO
 
 from fastapi.testclient import TestClient
 from PIL import Image
 
 from pet_breed_classification.logging_conf import JsonFormatter, correlation_id_var
-
-
-def image_bytes(image: Image.Image) -> bytes:
-    """Encode an image for the API request."""
-    buffer = BytesIO()
-    image.save(buffer, format="PNG")
-    return buffer.getvalue()
 
 
 def test_json_formatter_includes_required_fields_and_extra() -> None:
@@ -45,6 +37,7 @@ def test_json_formatter_includes_required_fields_and_extra() -> None:
 def test_request_prediction_and_response_share_correlation_id(
     client: TestClient,
     sample_image: Image.Image,
+    image_bytes,
 ) -> None:
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)

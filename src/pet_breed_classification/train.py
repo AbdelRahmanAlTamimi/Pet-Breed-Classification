@@ -7,7 +7,6 @@ import logging
 import os
 import random
 import time
-from typing import Any
 
 import numpy as np
 import torch
@@ -16,7 +15,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from .config import cfg
-from .data import PetBreedDataset, load_records
+from .data import PetBreedDataset, _load_classes, load_records
 from .logging_conf import setup_logging
 from .model import PetBreedClassifier, save_checkpoint
 from .transforms import build_eval_transform, build_train_transform
@@ -98,15 +97,6 @@ def run_epoch(
             targets_seen, predictions, average="macro", zero_division=0
         ),
     }
-
-
-def _load_classes() -> list[dict[str, Any]]:
-    """Load the committed class metadata for checkpoint serialization."""
-    label_map = json.loads(cfg.LABEL_MAP_PATH.read_text(encoding="utf-8"))
-    classes = label_map.get("classes")
-    if not isinstance(classes, list):
-        raise TypeError("Label map must contain a classes list")
-    return classes
 
 
 def main() -> None:

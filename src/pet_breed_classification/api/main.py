@@ -11,11 +11,12 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any, NoReturn
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException
 from starlette.responses import Response
 
 from ..config import cfg
@@ -32,6 +33,7 @@ from .schemas import (
 
 logger = logging.getLogger(__name__)
 setup_logging()
+warnings.filterwarnings("error", category=Image.DecompressionBombWarning)
 REQUIRED_FILE = File(...)
 REQUIRED_FILES = File(...)
 
@@ -132,7 +134,8 @@ async def request_validation_handler(
 async def http_exception_handler(request: Request, exception: HTTPException) -> JSONResponse:
     """Return HTTP errors with a correlation ID."""
     detail = exception.detail
-    logger.error("Validation rejection", extra={"status": exception.status_code})
+    level = logging.ERROR if exception.status_code >= 500 else logging.WARNING
+    logger.log(level, "HTTP error", extra={"status": exception.status_code})
     return _error_response(request, exception.status_code, detail)
 
 
@@ -163,11 +166,9 @@ def _decode(contents: bytes, field: str) -> Image.Image:
     if not contents:
         _validation_error(field, "The uploaded file is empty")
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(contents)) as image:
-                image.load()
-                decoded = image.copy()
+        with Image.open(io.BytesIO(contents)) as image:
+            image.load()
+            decoded = image.copy()
     except (Image.DecompressionBombError, Image.DecompressionBombWarning):
         _validation_error(field, "The image was rejected by Pillow's decompression-bomb guard")
     except (UnidentifiedImageError, OSError, ValueError) as exception:
@@ -304,12 +305,15 @@ async def predict_batch(
         for index, file in enumerate(files)
     ]
     started_at = time.perf_counter()
-    decoded_predictions = await run_in_threadpool(
+    images = await run_in_threadpool(
         lambda: [_decode(contents_item, f"files[{index}]") for index, contents_item in enumerate(contents)]
     )
-    images = decoded_predictions
     predictions = await run_in_threadpool(predictor.predict_batch, images)
     latency_ms = (time.perf_counter() - started_at) * 1000
+    logger.info(
+        "Batch prediction served",
+        extra={"batch_size": len(predictions), "latency_ms": latency_ms},
+    )
     for prediction in predictions:
         logger.info(
             "Prediction served",
@@ -317,7 +321,6 @@ async def predict_batch(
                 "breed": prediction.breed,
                 "confidence": prediction.confidence,
                 "decision": prediction.decision,
-                "latency_ms": latency_ms,
             },
         )
     return BatchPredictionResponse(

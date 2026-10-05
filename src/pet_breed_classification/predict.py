@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import functools
-import hashlib
 import json
 import logging
 import time
@@ -16,6 +15,7 @@ import numpy as np
 import onnxruntime as ort
 from PIL import Image
 
+from .artifacts import _sha256
 from .config import cfg
 from .transforms import build_eval_transform
 
@@ -36,15 +36,6 @@ def timed(function: Callable[P, R]) -> Callable[P, R]:
         return result
 
     return wrapper
-
-
-def _sha256(path: Path) -> str:
-    """Return a file's SHA-256 digest."""
-    digest = hashlib.sha256()
-    with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 @dataclass(frozen=True)

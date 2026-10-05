@@ -1,3 +1,7 @@
+# Build prerequisite: artifacts/model.onnx and artifacts/model_meta.json must
+# exist locally. Create them with `uv run python -m pet_breed_classification.export`,
+# then build from the repository root with:
+# docker build -f docker/Dockerfile -t pet-breed:0.1.0 .
 FROM python:3.11-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /uvx /bin/
@@ -5,20 +9,29 @@ COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /uvx /bin/
 WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
-RUN uv export --frozen --no-dev --no-group train --no-emit-project \
-    --format requirements.txt --no-hashes --no-header > /tmp/requirements.lock.txt \
-    && python -c "from pathlib import Path; excluded=('torch==','torchvision==','nvidia-','cuda-','triton=='); lines=Path('/tmp/requirements.lock.txt').read_text().splitlines(keepends=True); Path('/tmp/requirements.runtime.txt').write_text(''.join(line for line in lines if not line.strip().lower().startswith(excluded)))"
+RUN set -eux; \
+    uv export --frozen --no-dev --no-group train --no-emit-project \
+        --format requirements.txt --no-hashes --no-header \
+        > /tmp/requirements.lock.txt; \
+    awk 'tolower($0) ~ /^(torch==|torchvision==|nvidia-|cuda-|triton==)/ { next } { print }' \
+        /tmp/requirements.lock.txt > /tmp/requirements.runtime.txt; \
+    awk -F '==' '$1 == "torch" { print $2; exit }' \
+        /tmp/requirements.lock.txt > /tmp/torch.version; \
+    awk -F '==' '$1 == "torchvision" { print $2; exit }' \
+        /tmp/requirements.lock.txt > /tmp/torchvision.version; \
+    test -s /tmp/torch.version; \
+    test -s /tmp/torchvision.version
 RUN uv venv /opt/venv \
-    && uv pip install --python /opt/venv/bin/python -r /tmp/requirements.runtime.txt
+    && uv pip install --python /opt/venv/bin/python -r /tmp/requirements.runtime.txt \
+    && uv pip install --python /opt/venv/bin/python \
+        --no-deps \
+        --index-url https://download.pytorch.org/whl/cpu \
+        "torch==$(cat /tmp/torch.version)+cpu" \
+        "torchvision==$(cat /tmp/torchvision.version)+cpu"
 
 COPY src ./src
 COPY README.md ./README.md
 RUN uv pip install --python /opt/venv/bin/python --no-deps .
-
-RUN uv pip install --python /opt/venv/bin/python \
-    --no-deps \
-    --index-url https://download.pytorch.org/whl/cpu \
-    "torch==2.14.1+cpu" "torchvision==0.29.1+cpu"
 
 FROM python:3.11-slim AS runtime
 
@@ -27,7 +40,6 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PETBREED_PROJECT_ROOT=/app \
     PETBREED_ARTIFACTS_DIR=/app/artifacts \
-    PETBREED_MODEL_PATH=/app/artifacts/resnet50_best.pt \
     PETBREED_ONNX_PATH=/app/artifacts/model.onnx \
     PETBREED_MODEL_META_PATH=/app/artifacts/model_meta.json
 

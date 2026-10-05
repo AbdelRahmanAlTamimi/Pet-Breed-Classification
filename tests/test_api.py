@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from io import BytesIO
-
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -9,13 +7,6 @@ from PIL import Image
 from pet_breed_classification.api import main as api_main
 from pet_breed_classification.api.schemas import PredictionResponse
 from pet_breed_classification.config import Config
-
-
-def image_bytes(image: Image.Image, image_format: str = "PNG") -> bytes:
-    """Encode a PIL image for multipart API tests."""
-    buffer = BytesIO()
-    image.save(buffer, format=image_format)
-    return buffer.getvalue()
 
 
 def test_health_and_metadata(client: TestClient) -> None:
@@ -30,18 +21,48 @@ def test_health_and_metadata(client: TestClient) -> None:
     assert metadata.json()["num_classes"] == 3
 
 
-def test_health_returns_503_when_predictor_is_missing(client: TestClient) -> None:
+def test_health_returns_503_when_predictor_is_missing(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     client.app.state.predictor = None
+    caplog.set_level("WARNING")
 
     response = client.get("/health")
 
     assert response.status_code == 503
     assert response.json()["correlation_id"] == response.headers["x-request-id"]
+    assert any(
+        record.message == "HTTP error"
+        and record.status == 503
+        and record.levelname == "ERROR"
+        for record in caplog.records
+    )
+
+
+def test_not_found_uses_http_error_shape(
+    client: TestClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("WARNING")
+
+    response = client.get("/does-not-exist")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Not Found"
+    assert response.json()["correlation_id"] == response.headers["x-request-id"]
+    assert any(
+        record.message == "HTTP error"
+        and record.status == 404
+        and record.levelname == "WARNING"
+        for record in caplog.records
+    )
 
 
 def test_predict_happy_path_and_correlation(
     client: TestClient,
     sample_image: Image.Image,
+    image_bytes,
 ) -> None:
     response = client.post(
         "/predict",
@@ -88,7 +109,7 @@ def test_predict_rejects_missing_file(client: TestClient) -> None:
     assert response.json()["detail"][0]["field"] == "file"
 
 
-def test_predict_accepts_rgba(client: TestClient) -> None:
+def test_predict_accepts_rgba(client: TestClient, image_bytes) -> None:
     image = Image.new("RGBA", (80, 60), (20, 80, 140, 100))
 
     response = client.post(
@@ -119,6 +140,7 @@ def test_predict_rejects_decompression_bomb(
 def test_batch_predict_and_limit(
     client: TestClient,
     sample_image: Image.Image,
+    image_bytes,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     contents = image_bytes(sample_image)
@@ -147,6 +169,7 @@ def test_batch_predict_and_limit(
 def test_unexpected_error_is_safe(
     predictor,
     sample_image: Image.Image,
+    image_bytes,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def fail(image: Image.Image):
