@@ -1,2 +1,9 @@
+from .config import cfg
+from .logging_conf import setup_logging
+
+
 def main() -> None:
-    print("Hello from pet-breed-classification!")
+    setup_logging()
+
+
+__all__ = ["cfg", "main"]

@@ -7,8 +7,10 @@ dvc repro
 ```
 
 The suite creates three severities of each corruption for the official test
-split. Outputs are written below `data/corrupted/`. The combined manifest at
-`data/manifest.json` contains both clean source records and corrupted records.
+split. Outputs are written below `data/corrupted/`. The committed split index
+is `data/split_index.json`, and the combined manifest at
+`data/processed/manifest.json` contains both clean source records and corrupted
+records.
 
 | Corruption | Severity 1 | Severity 2 | Severity 3 |
 |---|---:|---:|---:|

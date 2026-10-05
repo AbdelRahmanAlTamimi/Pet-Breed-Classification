@@ -1,10 +1,14 @@
 import json
+import logging
 from collections import Counter
 from pathlib import Path
 
 from sklearn.model_selection import train_test_split
 
 from ..config import cfg
+from ..logging_conf import setup_logging
+
+logger = logging.getLogger(__name__)
 
 Record = tuple[str, str, int, str]
 
@@ -86,6 +90,7 @@ def _write_json(path: Path, value: dict[str, object]) -> None:
 
 
 def main() -> None:
+    setup_logging()
     trainval_records = _read_annotations(cfg.ANNOTATIONS_DIR / "trainval.txt")
     test_records = _read_annotations(cfg.ANNOTATIONS_DIR / "test.txt")
 
@@ -139,14 +144,14 @@ def main() -> None:
 
     train_counts = Counter(record[1] for record in sorted_trainval if record[0] in train_ids)
     val_counts = Counter(record[1] for record in sorted_trainval if record[0] in val_ids)
-    print(f"train: {len(train_ids)} images")
-    print(f"val: {len(val_ids)} images")
-    print(f"test: {len(test_ids_sorted)} images")
-    print(
+    logger.info("train: %d images", len(train_ids))
+    logger.info("val: %d images", len(val_ids))
+    logger.info("test: %d images", len(test_ids_sorted))
+    logger.info(
         "train images per class: "
         f"min={min(train_counts.values())}, max={max(train_counts.values())}"
     )
-    print(
+    logger.info(
         "val images per class: "
         f"min={min(val_counts.values())}, max={max(val_counts.values())}"
     )

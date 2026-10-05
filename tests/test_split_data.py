@@ -2,6 +2,7 @@ import json
 from collections import Counter
 
 from pet_breed_classification.config import cfg
+from pet_breed_classification.data import split_data
 
 
 def test_label_map() -> None:
@@ -40,3 +41,13 @@ def test_split_index() -> None:
     train_breeds = Counter(trainval_breeds[image_id] for image_id in train)
     val_breeds = Counter(trainval_breeds[image_id] for image_id in val)
     assert set(train_breeds) == set(val_breeds)
+
+
+def test_split_generation_is_byte_stable() -> None:
+    label_map_before = cfg.LABEL_MAP_PATH.read_bytes()
+    split_index_before = cfg.SPLIT_INDEX_PATH.read_bytes()
+
+    split_data.main()
+
+    assert cfg.LABEL_MAP_PATH.read_bytes() == label_map_before
+    assert cfg.SPLIT_INDEX_PATH.read_bytes() == split_index_before

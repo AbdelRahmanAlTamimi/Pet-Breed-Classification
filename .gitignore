@@ -28,7 +28,9 @@ dist/
 .ipynb_checkpoints/
 
 # Local datasets and model artifacts
+artifacts/
 data/raw/*
+!data/raw/*.dvc
 /data/corrupted/
 /data/processed/*.json
 

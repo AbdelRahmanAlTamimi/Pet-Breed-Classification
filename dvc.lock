@@ -7,18 +7,18 @@ stages:
       hash: md5
       md5: 5b10ff50faeba89de7c011b1ecc93d39
       size: 3182
-    - path: data/processed/split_index.json
-      hash: md5
-      md5: aca97eb5899f49f1859c75c481f66b87
-      size: 170179
     - path: data/raw/images
       hash: md5
       md5: 277f608c70d7bd7991e0cd5f5cc845c6.dir
       size: 796502375
       nfiles: 7393
+    - path: data/split_index.json
+      hash: md5
+      md5: aca97eb5899f49f1859c75c481f66b87
+      size: 170179
     - path: src/pet_breed_classification/config.py
       hash: md5
-      md5: f51f2bb7adc23dd521b481cda617a7ba
+      md5: 3b89b96b11b7f76a9f924289283954a0
       size: 1095
     - path: src/pet_breed_classification/data/corruptions.py
       hash: md5
@@ -42,18 +42,18 @@ stages:
       hash: md5
       md5: 5b10ff50faeba89de7c011b1ecc93d39
       size: 3182
-    - path: data/processed/split_index.json
-      hash: md5
-      md5: aca97eb5899f49f1859c75c481f66b87
-      size: 170179
     - path: data/raw/images
       hash: md5
       md5: 277f608c70d7bd7991e0cd5f5cc845c6.dir
       size: 796502375
       nfiles: 7393
+    - path: data/split_index.json
+      hash: md5
+      md5: aca97eb5899f49f1859c75c481f66b87
+      size: 170179
     - path: src/pet_breed_classification/config.py
       hash: md5
-      md5: f51f2bb7adc23dd521b481cda617a7ba
+      md5: 3b89b96b11b7f76a9f924289283954a0
       size: 1095
     - path: src/pet_breed_classification/data/build_manifest.py
       hash: md5
@@ -64,7 +64,7 @@ stages:
       md5: d42a9152c4ed1b2144df18b2614f296c
       size: 8965
     outs:
-    - path: data/manifest.json
+    - path: data/processed/manifest.json
       hash: md5
       md5: a8fdb39126995a46a33a910f316e53aa
       size: 22964628
@@ -75,7 +75,7 @@ stages:
       hash: md5
       md5: 5b10ff50faeba89de7c011b1ecc93d39
       size: 3182
-    - path: data/manifest.json
+    - path: data/processed/manifest.json
       hash: md5
       md5: a8fdb39126995a46a33a910f316e53aa
       size: 22964628

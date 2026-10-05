@@ -1,0 +1,8 @@
+services:
+  api:
+    image: ${PETBREED_IMAGE:-pet-breed:latest}
+    environment:
+      PETBREED_LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

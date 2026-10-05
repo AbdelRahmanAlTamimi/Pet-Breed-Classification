@@ -1,12 +1,16 @@
 """Build the combined clean and corrupted image manifest."""
 
 import json
+import logging
 from pathlib import Path
 
 from PIL import Image
 
 from ..config import cfg
+from ..logging_conf import setup_logging
 from .corruptions import CORRUPTIONS
+
+logger = logging.getLogger(__name__)
 
 REQUIRED_FIELDS = {
     "image_id",
@@ -115,6 +119,7 @@ def build_manifest() -> list[dict[str, object]]:
 
 
 def main() -> None:
+    setup_logging()
     records = build_manifest()
     if not records:
         raise ValueError("No images found while building the manifest")
@@ -127,7 +132,7 @@ def main() -> None:
         json.dumps(records, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"Wrote {len(records)} records to {cfg.MANIFEST_PATH}")
+    logger.info("Wrote %d records to %s", len(records), cfg.MANIFEST_PATH)
 
 
 if __name__ == "__main__":

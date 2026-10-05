@@ -6,14 +6,17 @@ readme = "README.md"
 authors = [
     { name = "AbdelRahmanAlTamimi", email = "tamimi6030@gmail.com" }
 ]
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 dependencies = [
+    "fastapi>=0.142.2",
+    "numpy>=2.4.6",
+    "onnxruntime>=1.30.0",
     "pillow>=12.3.0",
-    "pytest>=9.1.1",
-    "ruff>=0.16.9",
-    "scikit-learn>=1.9.1",
+    "pydantic-settings>=2.15.0",
+    "python-multipart>=0.0.32",
     "torch>=2.14.1",
     "torchvision>=0.29.1",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
@@ -25,6 +28,25 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "jupyter>=1.1.1",
+    "httpx>=0.28.1",
     "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.10",
 ]
+train = [
+    "jupyter>=1.1.1",
+    "onnx>=1.23.1",
+    "scikit-learn>=1.9.1",
+]
+
+[tool.ruff]
+exclude = ["notebooks"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=src/pet_breed_classification --cov-fail-under=70 --cov-report=term-missing"
+
+[tool.coverage.run]
+# The training entry point requires the full GPU/data-loader run; its behavior is
+# verified by the separate training acceptance run rather than unit coverage.
+omit = ["src/pet_breed_classification/train.py"]

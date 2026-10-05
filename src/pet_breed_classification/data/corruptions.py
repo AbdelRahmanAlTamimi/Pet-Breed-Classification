@@ -19,6 +19,7 @@ Run:    uv run python -m pet_breed_classification.data.corruptions
 
 import io
 import json
+import logging
 import os
 import random
 import time
@@ -31,6 +32,9 @@ import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter
 
 from ..config import cfg
+from ..logging_conf import setup_logging
+
+logger = logging.getLogger(__name__)
 
 SEVERITIES = (1, 2, 3)
 
@@ -206,43 +210,55 @@ def generate_corrupted_set(test_records: list[dict], num_workers: int) -> list[d
         ):
             output_records.extend(produced)
             if i % 200 == 0 or i == total_sources:
-                print(f"  {i}/{total_sources} source images processed")
+                logger.info("%d/%d source images processed", i, total_sources)
 
     return output_records
 
 
 def main() -> None:
+    setup_logging()
     test_records = load_test_records()
-    print(f"Loaded {len(test_records)} test images.")
+    logger.info("Loaded %d test images", len(test_records))
 
     if cfg.CORRUPTION_SAMPLE_PER_CLASS is not None:
         test_records = sample_per_class(
             test_records, cfg.CORRUPTION_SAMPLE_PER_CLASS, cfg.SEED
         )
-        print(f"Sampled {len(test_records)} images "
-              f"({cfg.CORRUPTION_SAMPLE_PER_CLASS} per class).")
+        logger.info(
+            "Sampled %d images (%d per class)",
+            len(test_records),
+            cfg.CORRUPTION_SAMPLE_PER_CLASS,
+        )
 
     num_workers = resolve_num_workers()
     total = len(test_records) * len(CORRUPTIONS) * len(SEVERITIES)
-    print(f"Generating {total} corrupted images "
-          f"({len(CORRUPTIONS)} corruptions x {len(SEVERITIES)} severities) "
-          f"using {num_workers} worker processes.")
+    logger.info(
+        "Generating %d corrupted images (%d corruptions x %d severities) using %d worker processes",
+        total,
+        len(CORRUPTIONS),
+        len(SEVERITIES),
+        num_workers,
+    )
 
     start = time.perf_counter()
     output_records = generate_corrupted_set(test_records, num_workers)
     elapsed = time.perf_counter() - start
 
-    print(f"\nGenerated {len(output_records)} corrupted images")
-    print(f"Elapsed: {elapsed:.1f}s ({len(output_records) / elapsed:.1f} images/s)")
+    logger.info("Generated %d corrupted images", len(output_records))
+    logger.info(
+        "Elapsed: %.1fs (%.1f images/s)",
+        elapsed,
+        len(output_records) / elapsed,
+    )
 
-    print("Sample severity 3 paths:")
+    logger.info("Sample severity 3 paths:")
     sample_paths = {
         record["corruption"]: record["path"]
         for record in output_records
         if record["severity"] == 3
     }
     for corruption_name in CORRUPTIONS:
-        print(f"  {corruption_name}: {sample_paths[corruption_name]}")
+        logger.info("%s: %s", corruption_name, sample_paths[corruption_name])
 
 
 if __name__ == "__main__":
