@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import warnings
@@ -12,6 +13,7 @@ import onnx
 import onnxruntime as ort
 import torch
 
+from . import tracking
 from .artifacts import _sha256
 from .config import cfg
 from .logging_conf import setup_logging
@@ -87,7 +89,19 @@ def export(checkpoint_path: Path, onnx_path: Path, meta_path: Path) -> None:
 def main() -> None:
     """Export the configured production checkpoint."""
     setup_logging()
+    parser = argparse.ArgumentParser(
+        description="Export the production checkpoint to ONNX."
+    )
+    parser.add_argument(
+        "--mlflow-run-id",
+        help="Attach the exported model to this existing MLflow run (needs tracking enabled).",
+    )
+    args = parser.parse_args()
     export(cfg.MODEL_PATH, cfg.ONNX_PATH, cfg.MODEL_META_PATH)
+    if args.mlflow_run_id:
+        tracking.attach_exported_model(
+            args.mlflow_run_id, cfg.ONNX_PATH, cfg.MODEL_META_PATH
+        )
 
 
 if __name__ == "__main__":

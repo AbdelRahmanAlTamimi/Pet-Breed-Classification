@@ -1,0 +1,29 @@
+# Tracking server image for the local MLflow stack. Build and run it through
+# docker/docker-compose.mlflow.yml; the API image does not use it.
+# MLFLOW_VERSION must equal the mlflow-skinny version pinned in uv.lock.
+FROM python:3.11.17-slim-bookworm AS builder
+
+ARG MLFLOW_VERSION=3.17.0
+ARG BOTO3_VERSION=1.43.110
+ARG PSYCOPG2_BINARY_VERSION=2.9.13
+
+COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /bin/uv
+
+RUN uv venv /opt/venv \
+    && uv pip install --no-cache --python /opt/venv/bin/python \
+        "mlflow==${MLFLOW_VERSION}" \
+        "boto3==${BOTO3_VERSION}" \
+        "psycopg2-binary==${PSYCOPG2_BINARY_VERSION}"
+
+FROM python:3.11.17-slim-bookworm AS runtime
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1
+
+COPY --from=builder /opt/venv /opt/venv
+
+RUN useradd --create-home --uid 1000 mlflow
+USER mlflow
+WORKDIR /home/mlflow
+
+EXPOSE 5000

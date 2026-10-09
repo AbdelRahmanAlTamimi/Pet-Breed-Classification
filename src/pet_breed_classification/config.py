@@ -27,8 +27,10 @@ class Config(BaseSettings):
     MANIFEST_PATH: Path = DATA_ROOT / "processed" / "manifest.json"
     ARTIFACTS_DIR: Path = PROJECT_ROOT / "artifacts"
     MODEL_PATH: Path = ARTIFACTS_DIR / "resnet50_best.pt"
+    HISTORY_PATH: Path = ARTIFACTS_DIR / "resnet50_training_history.json"
     ONNX_PATH: Path = ARTIFACTS_DIR / "model.onnx"
     MODEL_META_PATH: Path = ARTIFACTS_DIR / "model_meta.json"
+    DVC_LOCK_PATH: Path = PROJECT_ROOT / "dvc.lock"
     MODEL_VERSION: str = "v1"
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
     MAX_BATCH_FILES: int = 32
@@ -53,6 +55,11 @@ class Config(BaseSettings):
     BATCH_SIZE: int = 64
     LEARNING_RATE: float = 1e-4
     WEIGHT_DECAY: float = 1e-4
+
+    # MLflow tracking (optional; disabled by default)
+    MLFLOW_ENABLED: bool = False
+    MLFLOW_TRACKING_URI: str = "http://localhost:5000"
+    MLFLOW_EXPERIMENT: str = "pet-breed-classification"
 
 
 cfg = Config()
