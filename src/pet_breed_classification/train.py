@@ -14,6 +14,7 @@ from sklearn.metrics import f1_score
 from torch import nn
 from torch.utils.data import DataLoader
 
+from . import tracking
 from .config import cfg
 from .data import PetBreedDataset, _load_classes, load_records
 from .logging_conf import setup_logging
@@ -149,69 +150,92 @@ def main() -> None:
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.EPOCHS)
     _SCALER = torch.amp.GradScaler("cuda", enabled=USE_AMP)
 
-    history: list[dict[str, float | int]] = []
-    best_val_accuracy = -1.0
-    best_epoch = 0
-    best_metrics: dict[str, float] = {}
-    training_started_at = time.perf_counter()
-
-    for epoch in range(1, cfg.EPOCHS + 1):
-        started_at = time.perf_counter()
-        train_metrics = run_epoch(model, train_loader, criterion, optimizer)
-        val_metrics = run_epoch(model, val_loader, criterion)
-        scheduler.step()
-        elapsed_seconds = time.perf_counter() - started_at
-        row: dict[str, float | int] = {
-            "epoch": epoch,
-            "learning_rate": optimizer.param_groups[0]["lr"],
-            "train_loss": train_metrics["loss"],
-            "train_accuracy": train_metrics["accuracy"],
-            "train_macro_f1": train_metrics["macro_f1"],
-            "val_loss": val_metrics["loss"],
-            "val_accuracy": val_metrics["accuracy"],
-            "val_macro_f1": val_metrics["macro_f1"],
-            "elapsed_seconds": elapsed_seconds,
-        }
-        history.append(row)
-        logger.info(
-            "Epoch %02d/%d | train loss=%.4f, acc=%.4f | val loss=%.4f, acc=%.4f, "
-            "macro-F1=%.4f | %.1fs",
-            epoch,
-            cfg.EPOCHS,
-            train_metrics["loss"],
-            train_metrics["accuracy"],
-            val_metrics["loss"],
-            val_metrics["accuracy"],
-            val_metrics["macro_f1"],
-            elapsed_seconds,
+    with tracking.tracking_run(run_name="resnet50-train") as tracker:
+        tracker.log_params(
+            {
+                "backbone": "resnet50",
+                "lr": cfg.LEARNING_RATE,
+                "batch_size": cfg.BATCH_SIZE,
+                "epochs": cfg.EPOCHS,
+                "split_seed": cfg.SEED,
+                "train_seed": cfg.SEED,
+                "amp": USE_AMP,
+                "optimizer": "AdamW",
+                "scheduler": "CosineAnnealingLR",
+            }
         )
 
-        if val_metrics["accuracy"] > best_val_accuracy:
-            best_val_accuracy = val_metrics["accuracy"]
-            best_epoch = epoch
-            best_metrics = val_metrics
-            save_checkpoint(
-                model=model,
-                path=cfg.MODEL_PATH,
-                classes=classes,
-                seed=cfg.SEED,
-                epoch=epoch,
-                validation_metrics=val_metrics,
+        history: list[dict[str, float | int]] = []
+        best_val_accuracy = -1.0
+        best_epoch = 0
+        best_metrics: dict[str, float] = {}
+        training_started_at = time.perf_counter()
+
+        for epoch in range(1, cfg.EPOCHS + 1):
+            started_at = time.perf_counter()
+            train_metrics = run_epoch(model, train_loader, criterion, optimizer)
+            val_metrics = run_epoch(model, val_loader, criterion)
+            scheduler.step()
+            elapsed_seconds = time.perf_counter() - started_at
+            row: dict[str, float | int] = {
+                "epoch": epoch,
+                "learning_rate": optimizer.param_groups[0]["lr"],
+                "train_loss": train_metrics["loss"],
+                "train_accuracy": train_metrics["accuracy"],
+                "train_macro_f1": train_metrics["macro_f1"],
+                "val_loss": val_metrics["loss"],
+                "val_accuracy": val_metrics["accuracy"],
+                "val_macro_f1": val_metrics["macro_f1"],
+                "elapsed_seconds": elapsed_seconds,
+            }
+            history.append(row)
+            logger.info(
+                "Epoch %02d/%d | train loss=%.4f, acc=%.4f | val loss=%.4f, acc=%.4f, "
+                "macro-F1=%.4f | %.1fs",
+                epoch,
+                cfg.EPOCHS,
+                train_metrics["loss"],
+                train_metrics["accuracy"],
+                val_metrics["loss"],
+                val_metrics["accuracy"],
+                val_metrics["macro_f1"],
+                elapsed_seconds,
             )
 
-    history_path = cfg.MODEL_PATH.with_name("resnet50_training_history.json")
-    history_path.parent.mkdir(parents=True, exist_ok=True)
-    history_path.write_text(json.dumps(history, indent=2), encoding="utf-8")
-    total_training_seconds = time.perf_counter() - training_started_at
-    logger.info(
-        "Best epoch: %d; validation accuracy: %.4f; val macro-F1: %.4f",
-        best_epoch,
-        best_val_accuracy,
-        best_metrics["macro_f1"],
-    )
-    logger.info("Total training time: %.1fs", total_training_seconds)
-    logger.info("Checkpoint: %s", cfg.MODEL_PATH)
-    logger.info("History: %s", history_path)
+            if val_metrics["accuracy"] > best_val_accuracy:
+                best_val_accuracy = val_metrics["accuracy"]
+                best_epoch = epoch
+                best_metrics = val_metrics
+                save_checkpoint(
+                    model=model,
+                    path=cfg.MODEL_PATH,
+                    classes=classes,
+                    seed=cfg.SEED,
+                    epoch=epoch,
+                    validation_metrics=val_metrics,
+                )
+
+        history_path = cfg.HISTORY_PATH
+        history_path.parent.mkdir(parents=True, exist_ok=True)
+        history_path.write_text(json.dumps(history, indent=2), encoding="utf-8")
+        total_training_seconds = time.perf_counter() - training_started_at
+        logger.info(
+            "Best epoch: %d; validation accuracy: %.4f; val macro-F1: %.4f",
+            best_epoch,
+            best_val_accuracy,
+            best_metrics["macro_f1"],
+        )
+        logger.info("Total training time: %.1fs", total_training_seconds)
+        logger.info("Checkpoint: %s", cfg.MODEL_PATH)
+        logger.info("History: %s", history_path)
+
+        tracker.log_metrics({"train_duration_seconds": total_training_seconds})
+        unlogged = tracking.log_history(tracker, history)
+        if unlogged:
+            logger.warning("Metrics not logged to MLflow: %s", ", ".join(unlogged))
+        for path in (cfg.LABEL_MAP_PATH, cfg.SPLIT_INDEX_PATH, history_path):
+            tracker.log_artifact(path)
+        tracker.log_requirements()
 
 
 if __name__ == "__main__":

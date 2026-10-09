@@ -1,0 +1,3 @@
+# The MLflow image copies nothing from its build context. Ignore everything so that
+# docker/.env (which holds local credentials) is never sent to the Docker daemon.
+*
