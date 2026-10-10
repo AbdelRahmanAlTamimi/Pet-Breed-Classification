@@ -29,3 +29,33 @@ stages:
       - data/processed/manifest.json
       - data/label_map.json
       - tests/test_manifest.py
+
+  train:
+    cmd: >-
+      PETBREED_MLFLOW_ENABLED=false uv run python -m pet_breed_classification.train
+      --run-name dvc_train
+      --backbone ${backbone}
+      --lr ${lr}
+      --batch-size ${batch_size}
+      --epochs ${epochs}
+      --target-selective-accuracy ${target_selective_accuracy}
+      --artifacts-dir artifacts/dvc_run
+      --metrics-path reports/metrics.json
+    deps:
+      - data/split_index.json
+      - data/label_map.json
+      - src
+      - params.yaml
+    params:
+      - backbone
+      - lr
+      - batch_size
+      - epochs
+      - seed
+      - split_seed
+      - train_seed
+      - target_selective_accuracy
+    outs:
+      - artifacts/dvc_run/runs/dvc_train
+    metrics:
+      - reports/metrics.json

@@ -12,6 +12,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -216,6 +217,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--lr", type=float, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--epochs", type=int, default=None)
+    parser.add_argument("--artifacts-dir", type=Path, default=cfg.ARTIFACTS_DIR)
+    parser.add_argument("--metrics-path", type=Path, default=None)
+    parser.add_argument("--target-selective-accuracy", type=float, default=None)
     parser.add_argument(
         "--max-train-batches",
         type=int,
@@ -266,6 +270,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     lr = cfg.LEARNING_RATE if args.lr is None else args.lr
     batch_size = cfg.BATCH_SIZE if args.batch_size is None else args.batch_size
     epochs = cfg.EPOCHS if args.epochs is None else args.epochs
+    target_selective_accuracy = (
+        cfg.TARGET_SELECTIVE_ACCURACY
+        if args.target_selective_accuracy is None
+        else args.target_selective_accuracy
+    )
     _validate_positive("lr", lr)
     _validate_positive("batch-size", batch_size)
     _validate_positive("epochs", epochs)
@@ -310,7 +319,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     classes = _load_classes()
     run_name = args.run_name or _default_run_name(args.backbone)
-    run_artifacts = create_run_artifacts(run_name, cfg.ARTIFACTS_DIR)
+    run_artifacts = create_run_artifacts(run_name, args.artifacts_dir)
     model = PetBreedClassifier(
         num_classes=len(classes), pretrained=True, backbone=args.backbone
     ).to(DEVICE)
@@ -334,7 +343,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 "amp": USE_AMP,
                 "optimizer": "AdamW",
                 "scheduler": "CosineAnnealingLR",
-                "target_selective_accuracy": cfg.TARGET_SELECTIVE_ACCURACY,
+                "target_selective_accuracy": target_selective_accuracy,
             }
         )
         training_started_at = time.perf_counter()
@@ -373,9 +382,20 @@ def main(argv: Sequence[str] | None = None) -> None:
         }
         calibration = calibrate.fit_artifacts(
             run_artifacts.directory,
-            cfg.TARGET_SELECTIVE_ACCURACY,
+            target_selective_accuracy,
             seed=cfg.SEED,
         )
+        if args.metrics_path is not None:
+            metrics = {
+                "top1": calibration.after["top1"],
+                "f1_macro": calibration.after["macro_f1"],
+                "ece": calibration.after["ece"],
+                "temperature": calibration.temperature,
+                "coverage": calibration.selection.coverage,
+                "selective_accuracy": calibration.selection.selective_accuracy,
+            }
+            args.metrics_path.parent.mkdir(parents=True, exist_ok=True)
+            args.metrics_path.write_text(json.dumps(metrics, indent=2) + "\n")
         save_checkpoint(
             model,
             run_artifacts.checkpoint,

@@ -1,0 +1,8 @@
+backbone: resnet50
+lr: 0.00005
+batch_size: 64
+epochs: 10
+seed: 42
+split_seed: 42
+train_seed: 42
+target_selective_accuracy: 0.98
