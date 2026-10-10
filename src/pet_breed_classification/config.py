@@ -56,8 +56,8 @@ class Config(BaseSettings):
     LEARNING_RATE: float = 1e-4
     WEIGHT_DECAY: float = 1e-4
 
-    # MLflow tracking (optional; disabled by default)
-    MLFLOW_ENABLED: bool = False
+    # MLflow tracking (optional)
+    MLFLOW_ENABLED: bool = True
     MLFLOW_TRACKING_URI: str = "http://localhost:5000"
     MLFLOW_EXPERIMENT: str = "pet-breed-classification"
 
