@@ -1,4 +1,4 @@
-"""ResNet-50 model and checkpoint serialization."""
+"""Transfer-learning model factory and checkpoint serialization."""
 
 from __future__ import annotations
 
@@ -14,6 +14,10 @@ from .transforms import EVAL_TRANSFORM_METADATA
 
 logger = logging.getLogger(__name__)
 
+SUPPORTED_BACKBONES = ("resnet50", "resnet18", "mobilenet_v3_small")
+DEFAULT_BACKBONE = "resnet50"
+DEFAULT_NUM_CLASSES = 37
+
 CHECKPOINT_KEYS = {
     "backbone",
     "num_classes",
@@ -28,14 +32,49 @@ CHECKPOINT_KEYS = {
 }
 
 
-class PetBreedClassifier(nn.Module):
-    """ResNet-50 classifier with a configurable output head."""
+def build_backbone(
+    backbone: str,
+    num_classes: int,
+    *,
+    pretrained: bool = False,
+) -> nn.Module:
+    """Build one of the supported ImageNet backbones with a classification head."""
+    if backbone not in SUPPORTED_BACKBONES:
+        raise ValueError(
+            f"Unsupported backbone {backbone!r}; choose from {SUPPORTED_BACKBONES}"
+        )
 
-    def __init__(self, num_classes: int, pretrained: bool = False) -> None:
-        super().__init__()
+    if backbone == "resnet50":
         weights = models.ResNet50_Weights.DEFAULT if pretrained else None
-        self.backbone = models.resnet50(weights=weights)
-        self.backbone.fc = nn.Linear(self.backbone.fc.in_features, num_classes)
+        network = models.resnet50(weights=weights)
+        network.fc = nn.Linear(network.fc.in_features, num_classes)
+    elif backbone == "resnet18":
+        weights = models.ResNet18_Weights.DEFAULT if pretrained else None
+        network = models.resnet18(weights=weights)
+        network.fc = nn.Linear(network.fc.in_features, num_classes)
+    else:
+        weights = models.MobileNet_V3_Small_Weights.DEFAULT if pretrained else None
+        network = models.mobilenet_v3_small(weights=weights)
+        classifier = network.classifier
+        classifier[-1] = nn.Linear(classifier[-1].in_features, num_classes)
+
+    return network
+
+
+class PetBreedClassifier(nn.Module):
+    """ImageNet transfer-learning classifier with a configurable backbone."""
+
+    def __init__(
+        self,
+        num_classes: int = DEFAULT_NUM_CLASSES,
+        pretrained: bool = False,
+        backbone: str = DEFAULT_BACKBONE,
+    ) -> None:
+        super().__init__()
+        self.backbone_name = backbone
+        self.backbone = build_backbone(
+            backbone, num_classes, pretrained=pretrained
+        )
 
     def forward(self, images: Tensor) -> Tensor:
         """Return class logits for a batch of images."""
@@ -54,14 +93,14 @@ def save_checkpoint(
     abstain_threshold: float | None = None,
 ) -> None:
     """Save model weights and the metadata required to reproduce inference."""
-    num_classes = model.backbone.fc.out_features
+    num_classes = _num_classes(model.backbone)
     if num_classes != len(classes):
         raise ValueError(
             f"Model num_classes ({num_classes}) does not match classes length ({len(classes)})"
         )
 
     checkpoint: dict[str, Any] = {
-        "backbone": "resnet50",
+        "backbone": model.backbone_name,
         "num_classes": num_classes,
         "classes": classes,
         "eval_transform": eval_transform,
@@ -100,11 +139,27 @@ def load_checkpoint(
         raise ValueError(
             f"Checkpoint num_classes ({num_classes}) does not match classes length ({len(classes)})"
         )
-    if checkpoint["backbone"] != "resnet50":
-        raise ValueError(f"Unsupported checkpoint backbone: {checkpoint['backbone']!r}")
+    backbone = checkpoint["backbone"]
+    if backbone not in SUPPORTED_BACKBONES:
+        raise ValueError(f"Unsupported checkpoint backbone: {backbone!r}")
 
-    model = PetBreedClassifier(num_classes=num_classes, pretrained=False)
+    model = PetBreedClassifier(
+        num_classes=num_classes,
+        pretrained=False,
+        backbone=str(backbone),
+    )
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
     model.eval()
     return model, checkpoint
+
+
+def _num_classes(backbone: nn.Module) -> int:
+    """Return the output width of a supported torchvision classifier."""
+    if hasattr(backbone, "fc"):
+        head = backbone.fc
+    else:
+        head = backbone.classifier[-1]
+    if not isinstance(head, nn.Linear):
+        raise TypeError("Supported backbone must end in a linear classification head")
+    return head.out_features
