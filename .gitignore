@@ -34,6 +34,8 @@ data/raw/*
 !data/raw/*.dvc
 /data/corrupted/
 /data/processed/*.json
+# Owner-supplied out-of-distribution sanity photos: local only, never committed.
+/data/ood_sanity/
 models/
 checkpoints/
 runs/

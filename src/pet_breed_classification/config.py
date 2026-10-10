@@ -31,6 +31,8 @@ class Config(BaseSettings):
     ONNX_PATH: Path = ARTIFACTS_DIR / "model.onnx"
     MODEL_META_PATH: Path = ARTIFACTS_DIR / "model_meta.json"
     DVC_LOCK_PATH: Path = PROJECT_ROOT / "dvc.lock"
+    REPORTS_DIR: Path = PROJECT_ROOT / "reports"
+    OOD_SANITY_DIR: Path = DATA_ROOT / "ood_sanity"
     MODEL_VERSION: str = "v1"
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
     MAX_BATCH_FILES: int = 32
@@ -55,6 +57,11 @@ class Config(BaseSettings):
     BATCH_SIZE: int = 64
     LEARNING_RATE: float = 1e-4
     WEIGHT_DECAY: float = 1e-4
+
+    # Calibration: fitted on the validation split only
+    CALIBRATION_BINS: int = 15
+    TARGET_SELECTIVE_ACCURACY: float = 0.95
+    CALIBRATION_REPORT_TARGETS: tuple[float, ...] = (0.90, 0.95, 0.98)
 
     # MLflow tracking (optional)
     MLFLOW_ENABLED: bool = True
