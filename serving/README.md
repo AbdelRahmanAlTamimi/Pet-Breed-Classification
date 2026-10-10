@@ -112,3 +112,22 @@ latency-based rollback guard was **not implemented**.
 The local API image may be older than the current calibrated artifact. If so,
 the canary measurement tests routing only and does not claim current-model
 calibration parity.
+
+## Recorded Results
+
+The measured artifact was `model.onnx` SHA-256
+`2695971db4a24d851bf3a931ee4c6a604ec3fb6a1a82377b7d8fc91660d14a5d` and
+`model_version=v1`. Batch scoring measured 1,000 trainval images in 20.7678 s
+at 48.1515 images/s, with peak RSS 1,403,792 KiB. The CSV had 1,000 data rows
+at `data/scoring/output/batch_predictions.csv`.
+
+Locust was **not run: machine busy**. The pre-run gate measured load average
+`4.80` with `nproc=12`, above the allowed `3.0`; the later check was `4.55`.
+No latency, RPS, or failure percentage is published, and neither HTML nor CSV
+Locust report was created. The exact commands remain above.
+
+The local API image `pet-breed:latest` contains the same model SHA and
+calibration values. Nginx empirical routing was **not verified** because no
+local Nginx binary or Nginx image was available and pulling was prohibited.
+Consequently, `nginx -t`, the 1,000-request split, and rollback timing are not
+reported as measurements.
