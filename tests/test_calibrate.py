@@ -243,7 +243,11 @@ def test_run_fit_writes_outputs_and_reports_status(
         calibrate,
         "cfg",
         cfg.model_copy(
-            update={"REPORTS_DIR": tmp_path / "reports", "MODEL_META_PATH": meta_path}
+            update={
+                "ARTIFACTS_DIR": tmp_path,
+                "REPORTS_DIR": tmp_path / "reports",
+                "MODEL_META_PATH": meta_path,
+            }
         ),
     )
 

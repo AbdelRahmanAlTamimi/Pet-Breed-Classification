@@ -60,7 +60,7 @@ class Config(BaseSettings):
 
     # Calibration: fitted on the validation split only
     CALIBRATION_BINS: int = 15
-    TARGET_SELECTIVE_ACCURACY: float = 0.95
+    TARGET_SELECTIVE_ACCURACY: float = 0.98
     CALIBRATION_REPORT_TARGETS: tuple[float, ...] = (0.90, 0.95, 0.98)
 
     # MLflow tracking (optional)
