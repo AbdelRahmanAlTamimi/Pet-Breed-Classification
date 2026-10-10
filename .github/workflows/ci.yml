@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --all-groups
+      - run: uv run ruff check .
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --all-groups
+      - run: uv run pytest
+
+  quality-gate:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --all-groups
+      - run: uv run python scripts/quality_gate.py reports/metrics.json reports/baseline_metrics.json
+
+  docker:
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch' }}
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download released model artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts
+          gh release download model-v1 --repo "$GITHUB_REPOSITORY" \
+            --pattern model.onnx --pattern model_meta.json --dir artifacts --clobber
+          sha256sum --check ci/model_sha256.txt
+      - name: Build image
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          docker build -f docker/Dockerfile \
+            -t "pet-breed:0.1.${GITHUB_RUN_NUMBER}" \
+            -t "pet-breed:sha-${SHORT_SHA}" .
+      - name: Push image when Docker Hub secrets exist
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+          SHORT_SHA="${GITHUB_SHA::7}"
+          docker tag "pet-breed:0.1.${GITHUB_RUN_NUMBER}" "$DOCKERHUB_USERNAME/pet-breed:0.1.${GITHUB_RUN_NUMBER}"
+          docker tag "pet-breed:sha-${SHORT_SHA}" "$DOCKERHUB_USERNAME/pet-breed:sha-${SHORT_SHA}"
+          docker push "$DOCKERHUB_USERNAME/pet-breed:0.1.${GITHUB_RUN_NUMBER}"
+          docker push "$DOCKERHUB_USERNAME/pet-breed:sha-${SHORT_SHA}"
