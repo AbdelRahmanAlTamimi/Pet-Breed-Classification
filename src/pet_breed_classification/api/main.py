@@ -21,7 +21,7 @@ from starlette.responses import Response
 
 from ..config import cfg
 from ..logging_conf import correlation_id_var, setup_logging
-from ..predict import PetBreedPredictor, Prediction
+from ..predict import PetBreedPredictor, Prediction, UncalibratedModelError
 from .schemas import (
     BatchPredictionResponse,
     BreedPrediction,
@@ -40,10 +40,19 @@ REQUIRED_FILES = File(...)
 
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
-    """Load the predictor once during application startup."""
+    """Load the predictor once during application startup.
+
+    An uncalibrated model (null abstention threshold) stops startup with an error, so the
+    service never answers "confident" for every input. Other load failures keep the
+    service up with the model marked unavailable (health reports 503).
+    """
+    application.state.predictor = None
     try:
         application.state.predictor = PetBreedPredictor.load()
         logger.info("Predictor loaded", extra={"model_version": cfg.MODEL_VERSION})
+    except UncalibratedModelError as exception:
+        logger.critical("Refusing to start: model is not calibrated: %s", exception)
+        raise
     except Exception:
         application.state.predictor = None
         logger.exception("Model load failure")
@@ -168,7 +177,7 @@ def _decode(contents: bytes, field: str) -> Image.Image:
     try:
         with Image.open(io.BytesIO(contents)) as image:
             image.load()
-            decoded = image.copy()
+            decoded = image.convert("RGB")
     except (Image.DecompressionBombError, Image.DecompressionBombWarning):
         _validation_error(field, "The image was rejected by Pillow's decompression-bomb guard")
     except (UnidentifiedImageError, OSError, ValueError) as exception:
@@ -235,6 +244,8 @@ def _require_predictor(request: Request) -> PetBreedPredictor:
     predictor = getattr(request.app.state, "predictor", None)
     if predictor is None:
         raise HTTPException(status_code=503, detail="Model is unavailable")
+    if predictor.abstain_threshold is None:
+        raise HTTPException(status_code=503, detail="Model is not calibrated")
     return predictor
 
 
@@ -295,6 +306,8 @@ async def predict_batch(
 ) -> BatchPredictionResponse:
     """Predict the breeds in a batch of uploaded images."""
     predictor = _require_predictor(request)
+    if not files:
+        _validation_error("files", "At least one image file is required")
     if len(files) > cfg.MAX_BATCH_FILES:
         _validation_error(
             "files",

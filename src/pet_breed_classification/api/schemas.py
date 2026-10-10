@@ -107,8 +107,8 @@ class MetadataResponse(BaseModel):
                     "opset": 17,
                     "num_classes": 37,
                     "eval_transform": {"resize_size": 256, "crop_size": 224},
-                    "temperature": 1.0,
-                    "abstain_threshold": None,
+                    "temperature": 1.5,
+                    "abstain_threshold": 0.9,
                     "onnx_sha256": "...",
                     "trained_at": "2026-10-03T12:00:00Z",
                     "exported_at": "2026-10-03T12:01:00Z",
@@ -123,8 +123,8 @@ class MetadataResponse(BaseModel):
     opset: int
     num_classes: int
     eval_transform: dict[str, object]
-    temperature: float
-    abstain_threshold: float | None
+    temperature: float = Field(gt=0)
+    abstain_threshold: float = Field(ge=0, le=1)
     onnx_sha256: str
     trained_at: str
     exported_at: str

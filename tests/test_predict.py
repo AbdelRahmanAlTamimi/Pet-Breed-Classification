@@ -1,12 +1,19 @@
 import json
+import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 from PIL import Image
 
+from pet_breed_classification.calibration import softmax
 from pet_breed_classification.model import CHECKPOINT_KEYS, load_checkpoint
-from pet_breed_classification.predict import PetBreedPredictor, Prediction
+from pet_breed_classification.predict import (
+    PetBreedPredictor,
+    Prediction,
+    UncalibratedModelError,
+)
 from pet_breed_classification.transforms import (
     EVAL_TRANSFORM_METADATA,
     build_eval_transform,
@@ -66,6 +73,19 @@ def test_predict_rejects_sha256_mismatch(
         PetBreedPredictor.load(onnx_artifacts["onnx"], metadata_path)
 
 
+def test_predict_rejects_malformed_sha256(
+    onnx_artifacts: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    metadata = json.loads(onnx_artifacts["meta"].read_text(encoding="utf-8"))
+    metadata["onnx_sha256"] = "not-a-sha256-digest"
+    metadata_path = tmp_path / "malformed_meta.json"
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="64-character hexadecimal"):
+        PetBreedPredictor.load(onnx_artifacts["onnx"], metadata_path)
+
+
 def test_served_transform_and_probabilities_match_checkpoint(
     onnx_artifacts: dict[str, Path],
     predictor: PetBreedPredictor,
@@ -86,7 +106,7 @@ def test_served_transform_and_probabilities_match_checkpoint(
     inputs = torch.stack([checkpoint_transform(image) for image in images])
     with torch.inference_mode():
         probabilities = torch.softmax(
-            model(inputs) / float(checkpoint["temperature"]), dim=1
+            model(inputs) / float(metadata["temperature"]), dim=1
         )
     reference_probabilities, reference_indices = torch.topk(probabilities, 3, dim=1)
     predictions = predictor.predict_batch(images)
@@ -104,3 +124,104 @@ def test_served_transform_and_probabilities_match_checkpoint(
         ):
             assert breed == classes[int(reference_index)]["breed"]
             assert abs(probability - float(reference_probability)) < 1e-4
+
+
+def test_decision_uses_greater_or_equal_to_the_threshold(
+    predictor: PetBreedPredictor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = Image.new("RGB", (120, 90), (40, 90, 160))
+    top = predictor.predict_one(image).confidence
+
+    monkeypatch.setattr(predictor, "abstain_threshold", top)
+    assert predictor.predict_one(image).decision == "confident"
+
+    monkeypatch.setattr(predictor, "abstain_threshold", math.nextafter(top, 2.0))
+    assert predictor.predict_one(image).decision == "uncertain"
+
+
+def test_probabilities_are_calibrated_softmax_rows(predictor: PetBreedPredictor) -> None:
+    images = _parity_images()
+
+    probabilities = predictor.probabilities(images)
+
+    assert probabilities.shape == (len(images), 3)
+    assert np.all(probabilities >= 0)
+    assert np.allclose(probabilities.sum(axis=1), 1.0)
+    logits = predictor.raw_logits(images)
+    assert np.allclose(probabilities, softmax(logits, predictor.temperature))
+
+
+def test_temperature_is_applied_to_logits_outside_onnx(
+    predictor: PetBreedPredictor,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    image = Image.new("RGB", (120, 90), (40, 90, 160))
+    logits = predictor.raw_logits([image])
+    monkeypatch.setattr(predictor, "temperature", 2.0)
+
+    probabilities = predictor.probabilities([image])
+
+    assert np.allclose(probabilities, softmax(logits, 2.0))
+
+
+def test_batch_and_single_predictions_agree_including_decision(
+    predictor: PetBreedPredictor,
+) -> None:
+    images = _parity_images()
+
+    batch = predictor.predict_batch(images)
+    singles = [predictor.predict_one(image) for image in images]
+
+    for single, grouped in zip(singles, batch, strict=True):
+        assert single.breed == grouped.breed
+        assert single.decision == grouped.decision
+        assert abs(single.confidence - grouped.confidence) < 1e-6
+
+
+def test_load_refuses_a_null_threshold(
+    onnx_artifacts: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    metadata = json.loads(onnx_artifacts["meta"].read_text(encoding="utf-8"))
+    metadata["abstain_threshold"] = None
+    null_path = tmp_path / "null_meta.json"
+    null_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    with pytest.raises(UncalibratedModelError, match="calibrate fit"):
+        PetBreedPredictor.load(onnx_artifacts["onnx"], null_path)
+
+    loaded = PetBreedPredictor.load(
+        onnx_artifacts["onnx"], null_path, require_calibration=False
+    )
+    assert loaded.abstain_threshold is None
+    with pytest.raises(UncalibratedModelError):
+        loaded.predict_one(Image.new("RGB", (40, 40)))
+
+
+def test_load_rejects_non_positive_temperature(
+    onnx_artifacts: dict[str, Path],
+    tmp_path: Path,
+) -> None:
+    metadata = json.loads(onnx_artifacts["meta"].read_text(encoding="utf-8"))
+    metadata["temperature"] = 0.0
+    bad_path = tmp_path / "bad_temperature.json"
+    bad_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="temperature"):
+        PetBreedPredictor.load(onnx_artifacts["onnx"], bad_path)
+
+
+@pytest.mark.parametrize("threshold", [-0.1, 1.1, float("nan"), "0.5"])
+def test_load_rejects_invalid_threshold(
+    onnx_artifacts: dict[str, Path],
+    tmp_path: Path,
+    threshold: object,
+) -> None:
+    metadata = json.loads(onnx_artifacts["meta"].read_text(encoding="utf-8"))
+    metadata["abstain_threshold"] = threshold
+    bad_path = tmp_path / "bad_threshold.json"
+    bad_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+    with pytest.raises((TypeError, ValueError), match="abstain_threshold"):
+        PetBreedPredictor.load(onnx_artifacts["onnx"], bad_path)

@@ -74,8 +74,7 @@ def test_real_validation_parity() -> None:
 
     with torch.inference_mode():
         torch_probabilities = torch.softmax(
-            model(torch.from_numpy(checkpoint_inputs))
-            / float(checkpoint["temperature"]),
+            model(torch.from_numpy(checkpoint_inputs)) / predictor.temperature,
             dim=1,
         ).numpy()
     onnx_logits = predictor.session.run(
