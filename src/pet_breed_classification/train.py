@@ -367,7 +367,10 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         # These are the metrics measured by the training-time validation loop. The
         # ONNX-served validation metrics are logged from the calibration result below.
-        train_eval_metrics = result.best_metrics
+        train_eval_metrics = {
+            "top1": result.best_metrics["accuracy"],
+            "macro_f1": result.best_metrics["macro_f1"],
+        }
         calibration = calibrate.fit_artifacts(
             run_artifacts.directory,
             cfg.TARGET_SELECTIVE_ACCURACY,
