@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from pet_breed_classification import predict as predict_module
 from pet_breed_classification.api import main as api_main
 from pet_breed_classification.api.schemas import PredictionResponse
 from pet_breed_classification.config import Config
+from pet_breed_classification.predict import UncalibratedModelError
 
 
 def test_health_and_metadata(client: TestClient) -> None:
@@ -120,6 +125,17 @@ def test_predict_accepts_rgba(client: TestClient, image_bytes) -> None:
     assert response.status_code == 200
 
 
+def test_predict_accepts_grayscale(client: TestClient, image_bytes) -> None:
+    image = Image.new("L", (80, 60), 120)
+
+    response = client.post(
+        "/predict",
+        files={"file": ("grayscale.png", image_bytes(image), "image/png")},
+    )
+
+    assert response.status_code == 200
+
+
 def test_predict_rejects_decompression_bomb(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -166,6 +182,16 @@ def test_batch_predict_and_limit(
     assert "files" in limited.json()["detail"][0]["field"]
 
 
+def test_batch_predict_rejects_invalid_upload(client: TestClient) -> None:
+    response = client.post(
+        "/predict/batch",
+        files=[("files", ("not-an-image.txt", b"not an image", "text/plain"))],
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["field"] == "files[0]"
+
+
 def test_unexpected_error_is_safe(
     predictor,
     sample_image: Image.Image,
@@ -186,3 +212,72 @@ def test_unexpected_error_is_safe(
     assert response.status_code == 500
     assert "secret traceback" not in response.text
     assert response.headers["x-request-id"] == response.json()["correlation_id"]
+
+
+def test_metadata_reports_temperature_and_abstain_threshold(client: TestClient) -> None:
+    metadata = client.get("/metadata").json()
+
+    assert metadata["temperature"] == pytest.approx(1.0)
+    loaded = client.app.state.predictor.abstain_threshold
+    assert metadata["abstain_threshold"] == pytest.approx(loaded)
+
+
+def test_predict_returns_a_decision_and_calibrated_probabilities(
+    client: TestClient,
+    sample_image: Image.Image,
+    image_bytes,
+) -> None:
+    response = client.post(
+        "/predict",
+        files={"file": ("pet.png", image_bytes(sample_image), "image/png")},
+    )
+
+    body = response.json()
+    threshold = client.app.state.predictor.abstain_threshold
+    assert body["decision"] in {"confident", "uncertain"}
+    assert body["decision"] == (
+        "confident" if body["confidence"] >= threshold else "uncertain"
+    )
+    assert len(body["top_3"]) == 3
+    assert body["top_3"][0]["breed"] == body["breed"]
+    assert body["top_3"][0]["probability"] == pytest.approx(body["confidence"])
+
+
+def test_batch_predict_returns_a_decision_per_image(
+    client: TestClient,
+    sample_image: Image.Image,
+    image_bytes,
+) -> None:
+    contents = image_bytes(sample_image)
+    response = client.post(
+        "/predict/batch",
+        files=[("files", ("a.png", contents, "image/png"))],
+    )
+
+    assert response.status_code == 200
+    decisions = [item["decision"] for item in response.json()["predictions"]]
+    assert decisions and set(decisions) <= {"confident", "uncertain"}
+
+
+def test_startup_refuses_to_serve_an_uncalibrated_model(
+    onnx_artifacts: dict[str, Path],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    metadata = json.loads(onnx_artifacts["meta"].read_text(encoding="utf-8"))
+    metadata["abstain_threshold"] = None
+    null_path = tmp_path / "null_meta.json"
+    null_path.write_text(json.dumps(metadata), encoding="utf-8")
+    monkeypatch.setattr(
+        predict_module,
+        "cfg",
+        predict_module.cfg.model_copy(
+            update={"ONNX_PATH": onnx_artifacts["onnx"], "MODEL_META_PATH": null_path}
+        ),
+    )
+
+    with (
+        pytest.raises(UncalibratedModelError, match="calibrate fit"),
+        TestClient(api_main.app),
+    ):
+        pass

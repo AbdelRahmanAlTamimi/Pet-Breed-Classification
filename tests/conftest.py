@@ -15,6 +15,9 @@ from pet_breed_classification.export import export
 from pet_breed_classification.model import PetBreedClassifier, save_checkpoint
 from pet_breed_classification.predict import PetBreedPredictor
 
+# Test-only abstention threshold for the synthetic random model. It is not a calibrated value.
+TEST_ABSTAIN_THRESHOLD = 0.5
+
 
 def _classes() -> list[dict[str, object]]:
     return [
@@ -116,7 +119,16 @@ def onnx_artifacts(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
     onnx_path = directory / "model.onnx"
     meta_path = directory / "model_meta.json"
     model = PetBreedClassifier(num_classes=3, pretrained=False)
-    save_checkpoint(model, checkpoint_path, _classes(), 42, 1, {})
+    save_checkpoint(
+        model,
+        checkpoint_path,
+        _classes(),
+        42,
+        1,
+        {},
+        temperature=1.0,
+        abstain_threshold=TEST_ABSTAIN_THRESHOLD,
+    )
     export(checkpoint_path, onnx_path, meta_path)
     return {"checkpoint": checkpoint_path, "onnx": onnx_path, "meta": meta_path}
 
