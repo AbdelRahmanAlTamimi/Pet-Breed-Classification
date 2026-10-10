@@ -33,11 +33,18 @@ dev = [
 ]
 train = [
     "jupyter>=1.1.1",
+    "matplotlib>=3.11.2",
     "mlflow-skinny>=3.17.0",
     "onnx>=1.23.1",
     "pyyaml>=6.0.3",
     "scikit-learn>=1.9.1",
 ]
+
+[tool.uv]
+# Tests import the train group (scikit-learn, onnx, mlflow-skinny), so a plain
+# `uv run pytest` must install it. The API image is unaffected: its Dockerfile runs
+# `uv export --no-dev --no-group train`, which excludes both groups explicitly.
+default-groups = ["dev", "train"]
 
 [tool.ruff]
 exclude = ["notebooks"]
