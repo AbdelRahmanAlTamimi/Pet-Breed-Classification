@@ -14,7 +14,7 @@ the same ONNX SHA-256:
 ```bash
 uv run python serving/import_model.py
 uv run bentoml models list
-uv run bentoml serve serving/service.py:PetBreedService --port 8000
+BENTOML_CONFIG=serving/bentoml-config.yaml uv run bentoml serve serving/service.py:svc --port 8000
 ```
 
 `POST /predict` accepts a multipart `file` upload and returns the FastAPI fields
