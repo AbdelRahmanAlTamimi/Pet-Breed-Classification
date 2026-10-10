@@ -40,3 +40,4 @@ models/
 checkpoints/
 runs/
 logs/
+output.md
