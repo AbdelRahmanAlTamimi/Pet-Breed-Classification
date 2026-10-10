@@ -34,6 +34,7 @@ UNKNOWN = "unknown"
 MANIFEST_DVC_PATH = "data/processed/manifest.json"
 BYTES_PER_MB = 1024 * 1024
 EPOCH_METRICS = (
+    "learning_rate",
     "train_loss",
     "train_accuracy",
     "train_macro_f1",
@@ -130,7 +131,7 @@ def _git(*args: str) -> str | None:
 
 
 def _git_dirty() -> str:
-    """Return 'true' when tracked files differ from HEAD. Untracked files are ignored."""
+    """Return whether any tracked file differs from HEAD."""
     status = _git("status", "--porcelain", "--untracked-files=no")
     if status is None:
         return UNKNOWN
@@ -195,7 +196,12 @@ def model_size_mb(onnx_path: Path) -> float:
     return onnx_path.stat().st_size / BYTES_PER_MB
 
 
-def log_history(tracker: Tracker, history: Sequence[Mapping[str, Any]]) -> list[str]:
+def log_history(
+    tracker: Tracker,
+    history: Sequence[Mapping[str, Any]],
+    *,
+    include_learning_rate: bool = True,
+) -> list[str]:
     """Log per-epoch metrics (step = epoch) and the final/best validation summary.
 
     A value absent from the history is not logged; its name is returned instead.
@@ -203,10 +209,11 @@ def log_history(tracker: Tracker, history: Sequence[Mapping[str, Any]]) -> list[
     if not history:
         raise ValueError("Training history is empty")
 
+    metric_names = EPOCH_METRICS if include_learning_rate else EPOCH_METRICS[1:]
     missing: set[str] = set()
     for row in history:
-        present = {name: float(row[name]) for name in EPOCH_METRICS if name in row}
-        missing.update(name for name in EPOCH_METRICS if name not in row)
+        present = {name: float(row[name]) for name in metric_names if name in row}
+        missing.update(name for name in metric_names if name not in row)
         tracker.log_metrics(present, step=int(row["epoch"]))
 
     last = history[-1]
@@ -298,7 +305,7 @@ def backfill() -> str:
         tags={"backfilled": "true", "backfill_note": BACKFILL_NOTE},
     ) as tracker:
         tracker.log_params(params)
-        missing.extend(log_history(tracker, history))
+        missing.extend(log_history(tracker, history, include_learning_rate=False))
         if onnx_verified:
             tracker.log_metrics({"model_size_mb": model_size_mb(cfg.ONNX_PATH)})
         tracker.set_tags({"backfill_missing": ",".join(sorted(set(missing))) or "none"})
