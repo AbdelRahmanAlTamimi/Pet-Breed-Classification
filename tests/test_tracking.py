@@ -288,7 +288,12 @@ def test_log_history_logs_epoch_series_and_summary(tracking_cfg: Config) -> None
     assert metrics["final_val_macro_f1"] == 0.87
     assert metrics["best_val_accuracy"] == 0.90
     assert metrics["best_epoch"] == 2.0
-    assert not any(name.startswith("learning_rate") for name in metrics)
+    learning_rates = client.get_metric_history(run_id, "learning_rate")
+    assert [(metric.step, metric.value) for metric in learning_rates] == [
+        (1, 0.1),
+        (2, 0.05),
+        (3, 0.0),
+    ]
 
 
 def test_log_history_reports_values_it_cannot_log(tracking_cfg: Config) -> None:
