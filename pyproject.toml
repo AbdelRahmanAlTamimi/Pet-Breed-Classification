@@ -31,6 +31,12 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.16.10",
 ]
+loadtest = [
+    "locust==2.43.1",
+]
+serve = [
+    "bentoml==1.4.30",
+]
 train = [
     "jupyter>=1.1.1",
     "matplotlib>=3.11.2",
