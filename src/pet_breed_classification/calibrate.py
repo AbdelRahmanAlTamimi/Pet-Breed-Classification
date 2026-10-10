@@ -71,11 +71,13 @@ class FitResult:
     figure_path: Path
 
 
-def validation_logits(predictor: PetBreedPredictor) -> tuple[FloatArray, IntArray]:
-    """Return uncalibrated validation logits and labels through the served inference path."""
-    records = load_records("val")
+def logits_for_records(
+    predictor: PetBreedPredictor,
+    records: Sequence[dict[str, Any]],
+) -> tuple[FloatArray, IntArray]:
+    """Return uncalibrated ONNX CPU logits and labels for clean records."""
     if not records:
-        raise ValueError("validation split has no records")
+        raise ValueError("records has no samples")
     labels = np.array(
         [int(record["class_index"]) for record in records], dtype=np.int64
     )
@@ -92,6 +94,12 @@ def validation_logits(predictor: PetBreedPredictor) -> tuple[FloatArray, IntArra
             )
         blocks.append(logits)
     return np.concatenate(blocks, axis=0), labels
+
+
+def validation_logits(predictor: PetBreedPredictor) -> tuple[FloatArray, IntArray]:
+    """Return uncalibrated validation logits through the served inference path."""
+    records = load_records("val")
+    return logits_for_records(predictor, records)
 
 
 def split_metrics(
@@ -164,6 +172,8 @@ def two_fold_swap(
             "threshold_reason": selection.reason,
             "held_out_coverage": None,
             "held_out_selective_accuracy": None,
+            "accepted_count": None,
+            "abstention_count": None,
         }
         if selection.threshold is None:
             pooled_available = False
@@ -181,6 +191,8 @@ def two_fold_swap(
         evaluated_total += len(eval_index)
         entry["held_out_coverage"] = coverage
         entry["held_out_selective_accuracy"] = selective
+        entry["accepted_count"] = accepted
+        entry["abstention_count"] = len(eval_index) - accepted
         folds.append(entry)
 
     pooled: dict[str, float | None] = {"coverage": None, "selective_accuracy": None}
@@ -417,6 +429,7 @@ def _print_fit_summary(result: FitResult) -> None:
         print(
             f"  fold {fold['fold']}: T={fold['temperature']:.4f} "
             f"threshold={fold['threshold']} "
+            f"abstentions={fold['abstention_count']} "
             f"held-out coverage={held_cov} held-out sel. acc.={held_sel}"
         )
     pooled = two["held_out_pooled"]
@@ -433,24 +446,57 @@ def _print_fit_summary(result: FitResult) -> None:
     print(f"wrote {result.report_path}")
 
 
-def run_fit(target: float) -> int:
-    """Fit calibration for the configured artifacts. Returns a process exit code."""
+def fit_artifacts(
+    artifacts_dir: Path,
+    target: float,
+    *,
+    seed: int = cfg.SEED,
+) -> FitResult:
+    """Fit calibration for one artifact directory using validation records only."""
+    return _fit_paths(
+        artifacts_dir / "model.onnx",
+        artifacts_dir / "model_meta.json",
+        artifacts_dir / "reports",
+        target,
+        seed=seed,
+    )
+
+
+def _fit_paths(
+    onnx_path: Path,
+    meta_path: Path,
+    reports_dir: Path,
+    target: float,
+    *,
+    seed: int,
+) -> FitResult:
+    """Fit calibration for explicit artifact files."""
     predictor = PetBreedPredictor.load(
-        cfg.ONNX_PATH, cfg.MODEL_META_PATH, require_calibration=False
+        onnx_path, meta_path, require_calibration=False
     )
     logits, labels = validation_logits(predictor)
-    result = fit_from_logits(
+    return fit_from_logits(
         logits,
         labels,
         model_version=str(predictor.metadata["model_version"]),
         onnx_sha256=str(predictor.metadata["onnx_sha256"]),
         target=target,
-        reports_dir=cfg.REPORTS_DIR,
-        meta_path=cfg.MODEL_META_PATH,
-        seed=cfg.SEED,
+        reports_dir=reports_dir,
+        meta_path=meta_path,
+        seed=seed,
     )
+
+
+def run_fit(target: float, artifacts_dir: Path | None = None) -> int:
+    """Fit calibration for an artifact directory. Returns a process exit code."""
+    if artifacts_dir is None:
+        directory = cfg.ARTIFACTS_DIR
+        result = fit_artifacts(directory, target, seed=cfg.SEED)
+    else:
+        directory = artifacts_dir
+        result = fit_artifacts(directory, target, seed=cfg.SEED)
     _print_fit_summary(result)
-    print(f"wrote temperature and abstain_threshold to {cfg.MODEL_META_PATH}")
+    print(f"wrote temperature and abstain_threshold to {directory / 'model_meta.json'}")
     if result.selection.threshold is None:
         print(
             "abstain_threshold is null: no threshold reaches the target. The API will refuse "
@@ -669,6 +715,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=cfg.TARGET_SELECTIVE_ACCURACY,
         help="Required selective accuracy on the calibrated validation scores.",
     )
+    fit_parser.add_argument(
+        "--artifacts-dir",
+        type=Path,
+        default=None,
+        help="Directory containing model.onnx and model_meta.json (default: artifacts).",
+    )
     sanity_parser = subcommands.add_parser(
         "sanity",
         help="Run out-of-distribution inputs through /predict (informational).",
@@ -682,7 +734,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     setup_logging()
     if args.command == "fit":
-        return run_fit(float(args.target_selective_accuracy))
+        target = float(args.target_selective_accuracy)
+        if args.artifacts_dir is None:
+            return run_fit(target)
+        return run_fit(target, Path(args.artifacts_dir))
     return run_sanity(Path(args.dir))
 
 
