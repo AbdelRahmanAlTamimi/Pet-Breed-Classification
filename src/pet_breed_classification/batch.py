@@ -16,6 +16,7 @@ from .config import cfg
 from .predict import PetBreedPredictor, Prediction
 
 IMAGE_SUFFIX = ".jpg"
+INPUT_DIR_SUFFIXES = (".jpg", ".jpeg", ".png")
 BATCH_SIZE = 32
 
 
@@ -47,6 +48,20 @@ def _trainval_records() -> list[dict[str, Any]]:
             }
         )
     return records
+
+
+def directory_records(input_dir: Path) -> list[dict[str, Any]]:
+    """Build unlabeled records from every image file under a directory, sorted by path."""
+    if not input_dir.is_dir():
+        raise NotADirectoryError(input_dir)
+    paths = sorted(
+        path
+        for path in input_dir.rglob("*")
+        if path.is_file() and path.suffix.lower() in INPUT_DIR_SUFFIXES
+    )
+    if not paths:
+        raise ValueError(f"No images found under {input_dir}")
+    return [{"image_id": path.stem, "path": path} for path in paths]
 
 
 def _row(image_id: str, prediction: Prediction, model_version: str) -> dict[str, Any]:
@@ -101,9 +116,14 @@ def score_records(
 
 
 def main() -> None:
-    """Score the requested number of trainval images."""
+    """Score trainval images, or any unlabeled image directory with --input-dir."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int)
+    parser.add_argument(
+        "--input-dir",
+        type=Path,
+        help="score every .jpg/.jpeg/.png under this directory instead of trainval",
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -116,10 +136,10 @@ def main() -> None:
     if args.batch_size <= 0:
         parser.error("--batch-size must be positive")
 
-    records = _trainval_records()
+    records = directory_records(args.input_dir) if args.input_dir else _trainval_records()
     if args.limit is not None:
         if args.limit > len(records):
-            parser.error(f"--limit exceeds available trainval images ({len(records)})")
+            parser.error(f"--limit exceeds available images ({len(records)})")
         records = records[: args.limit]
     result = score_records(records, PetBreedPredictor.load(), args.output, batch_size=args.batch_size)
     print(json.dumps(result, indent=2))

@@ -4,7 +4,9 @@ import csv
 from pathlib import Path
 from typing import ClassVar
 
-from pet_breed_classification.batch import score_records
+import pytest
+
+from pet_breed_classification.batch import directory_records, score_records
 from pet_breed_classification.predict import Prediction
 
 
@@ -42,3 +44,22 @@ def test_score_records_is_hermetic(tmp_path: Path) -> None:
         rows = list(csv.DictReader(output))
     assert len(rows) == 3
     assert rows[0]["model_version"] == "test"
+
+
+def test_directory_records_lists_only_images_sorted(tmp_path: Path) -> None:
+    from PIL import Image
+
+    (tmp_path / "nested").mkdir()
+    Image.new("RGB", (8, 8)).save(tmp_path / "b.png")
+    Image.new("RGB", (8, 8)).save(tmp_path / "nested" / "a.jpg")
+    (tmp_path / "notes.txt").write_text("not an image", encoding="utf-8")
+
+    records = directory_records(tmp_path)
+
+    assert [record["image_id"] for record in records] == ["b", "a"]
+    assert all("breed" not in record for record in records)
+
+
+def test_directory_records_rejects_empty_directory(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="No images"):
+        directory_records(tmp_path)
