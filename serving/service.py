@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 warnings.filterwarnings("error", category=Image.DecompressionBombWarning)
 
 MAX_BATCH_SIZE = 8
-MAX_LATENCY_MS = 50
+# Above the per-batch latency under load; at 50 ms the dispatcher shed 8.6% of
+# requests as "Service Busy" in the first Locust run (reports/locust_bentoml_run1_*).
+MAX_LATENCY_MS = 500
 _health_predictor: PetBreedPredictor | None = None
 
 
@@ -82,22 +84,19 @@ def _response(
     }
 
 
-def _predict_one(
+def _predict_many(
     predictor: PetBreedPredictor | None,
-    upload: Path | BinaryIO | bytes | bytearray,
-) -> dict[str, Any]:
-    """Decode and score one upload using the shared predictor."""
+    uploads: list[Path | BinaryIO | bytes | bytearray],
+) -> list[dict[str, Any]]:
+    """Decode uploads and score them with one shared-predictor batch call."""
     if predictor is None:
         raise ServiceUnavailable("Model is unavailable")
-    image = _decode(upload)
+    images = [_decode(upload) for upload in uploads]
     started_at = time.perf_counter()
-    prediction = predictor.predict_one(image)
+    predictions = predictor.predict_batch(images)
     latency_ms = (time.perf_counter() - started_at) * 1000
-    return _response(
-        prediction,
-        str(predictor.metadata["model_version"]),
-        latency_ms,
-    )
+    model_version = str(predictor.metadata["model_version"])
+    return [_response(prediction, model_version, latency_ms) for prediction in predictions]
 
 
 class PetBreedRunnable(legacy.Runnable):
@@ -128,8 +127,8 @@ class PetBreedRunnable(legacy.Runnable):
         self,
         uploads: list[Path | BinaryIO | bytes | bytearray],
     ) -> list[dict[str, Any]]:
-        """Score one adaptive batch with max size/latency set on the Runner."""
-        return [_predict_one(self.predictor, upload) for upload in uploads]
+        """Score one adaptive batch in a single ONNX Runtime call."""
+        return _predict_many(self.predictor, uploads)
 
     @legacy.Runnable.method
     def metadata(self) -> dict[str, Any]:

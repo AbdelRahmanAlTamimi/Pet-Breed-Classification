@@ -4,7 +4,12 @@ repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v3.2.0
     hooks:
+    # Measured reports are committed byte-for-byte as their tools wrote them.
     -   id: trailing-whitespace
+        exclude: ^reports/
     -   id: end-of-file-fixer
+        exclude: ^reports/
     -   id: check-yaml
+    # Locust HTML reports are about 0.9 MB each.
     -   id: check-added-large-files
+        args: ['--maxkb=1024']

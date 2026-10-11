@@ -53,3 +53,20 @@ def test_bento_predict_parity_on_validation_images() -> None:
         assert [item["probability"] for item in actual["top_3"]] == pytest.approx(
             [item[1] for item in expected.top_3], abs=1e-6
         )
+
+
+def test_bento_batch_matches_single_predictions() -> None:
+    if not cfg.ONNX_PATH.is_file() or not cfg.MODEL_META_PATH.is_file():
+        pytest.skip("real model artifacts are unavailable")
+
+    split_index = json.loads(cfg.SPLIT_INDEX_PATH.read_text(encoding="utf-8"))
+    paths = [cfg.IMAGES_DIR / f"{image_id}.jpg" for image_id in split_index["val"][:8]]
+    runnable = PetBreedRunnable()
+
+    batched = runnable.predict(paths)
+    singles = [runnable.predict([path])[0] for path in paths]
+    assert len(batched) == len(paths)
+    for batch_item, single_item in zip(batched, singles, strict=True):
+        assert batch_item["breed"] == single_item["breed"]
+        assert batch_item["decision"] == single_item["decision"]
+        assert batch_item["confidence"] == pytest.approx(single_item["confidence"], abs=1e-5)
