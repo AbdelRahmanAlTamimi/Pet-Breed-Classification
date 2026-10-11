@@ -488,7 +488,21 @@ Caveats, stated plainly:
 
 ## Final verification
 
-Not run yet.
+Run on 2026-10-11 at commit `146a496`:
+
+- `dvc repro train` after the phase 3-8 code changes: metrics identical to the shipped
+  run (top-1 0.9497282608695652). A second run was a no-op, and `dvc status` reported
+  "Data and pipelines are up to date."
+- Fresh `git clone` (default groups, no data or model artifacts): `uv run pytest`
+  gave 213 passed and 8 skipped (optional groups, or local data/artifacts absent),
+  with coverage 83.75% against the 70% gate. `ruff check`, `uv lock --check` and
+  actionlint were clean.
+- Fresh `uv venv` + `uv pip install -e .`: the package imports, loads `model.onnx` +
+  `model_meta.json` copied from `artifacts/` (sha256 matching `ci/model_sha256.txt`),
+  and predicts Abyssinian 0.979373 "confident".
+- `git status` was clean. No `.env`, `.onnx`, `.pt`, `.parquet` or `output.md` files
+  are tracked, and no non-placeholder value from the local env files appears in any
+  of the 136 tracked files.
 
 ## Reproduce
 
