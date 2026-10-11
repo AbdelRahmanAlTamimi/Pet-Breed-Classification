@@ -89,7 +89,7 @@ repository owner can do.
 | `bentoml serve` runs `/predict` at localhost:8000 | done | Locust run against it |
 | Locust report before optimization | done | `reports/locust_fastapi.html`, `reports/locust_bentoml.html` |
 | ONNX export test: PyTorch vs ONNX logits within 1e-4 on 200 images | done | `tests/test_serialization.py::test_real_validation_parity` (needs local artifacts; skipped in CI) |
-| ONNX Runtime and OpenVINO CPU paths, p95 for both | see [OpenVINO](#onnx-runtime-vs-openvino-cpu) | |
+| ONNX Runtime and OpenVINO CPU paths, p95 for both | done | p95 13.13 ms (ORT) vs 17.57 ms (OpenVINO), `reports/runtime_benchmark.json` |
 | TensorRT FP16 on Triton | not done (out of scope) | owner decision |
 | Locust after TensorRT | not done (out of scope) | owner decision |
 | Batch scoring >= 1,000 images to `data/scoring/output/` | done | 1,000 images, 43.96 images/s |
@@ -410,8 +410,29 @@ from that run.
 
 ## ONNX Runtime vs OpenVINO (CPU)
 
-Not done yet. This section is filled in when the OpenVINO comparison has been
-measured.
+`PETBREED_RUNTIME=openvino` (dependency group `openvino`, `openvino==2026.4.1`) makes
+`PetBreedPredictor` run the sha256-verified ONNX file through OpenVINO: converted to
+an OpenVINO IR model and compiled for CPU in FP32. Preprocessing, temperature and
+threshold are unchanged. The default stays `onnxruntime`.
+`uv run --group openvino python -m pet_breed_classification.benchmark_runtimes` also
+writes the IR to `artifacts/openvino/model.xml` (git-ignored).
+
+Protocol, identical for both engines: batch 1, 200 val images, 50 warm-up runs
+discarded, 500 timed runs of the engine call on preprocessed tensors, 6 threads
+(ORT `intra_op_num_threads=6`, `inter_op_num_threads=1`; OpenVINO
+`INFERENCE_NUM_THREADS=6`). Hardware: Intel Core i5-12500 (6 cores / 12 threads).
+ONNX Runtime 1.30.0, OpenVINO 2026.4.1. The 1-minute load average was 0.54 before
+the run. Report: `reports/runtime_benchmark.json`.
+
+| Engine | p50 (ms) | p95 (ms) | mean (ms) |
+|---|---|---|---|
+| ONNX Runtime (CPU EP) | 12.15 | 13.13 | 12.35 |
+| OpenVINO (CPU, FP32) | 13.94 | 17.57 | 14.33 |
+
+Top-1 agreement on the 200 images: 1.000. Maximum absolute difference in calibrated
+probability: 2.4e-6. On this CPU, OpenVINO FP32 was slower than ONNX Runtime at batch
+1 (p95 +4.4 ms), so the service keeps ONNX Runtime. No INT8 or other OpenVINO
+optimization was tried, since that is out of scope.
 
 ## Retraining loop
 
@@ -502,7 +523,7 @@ docker compose -f docker/docker-compose.monitoring.yml up -d                  # 
 | 1. Packaging, API, Docker | dataset split, corruption suite, manifest, first ResNet-50, FastAPI `/predict` and `/health`, Docker image, tests | `63ddec9`, `58d588c`, `c3abfb9`, `49971f8`, PR #2 `cca208b` |
 | 2. MLflow, DVC, CI | MLflow stack; temperature scaling and abstention; ResNet-18 and MobileNetV3 backbones; isolated runs; registry helpers; DVC train stage; CI quality gate; final run shipped as v2; stable DVC hashes; CI on PRs | `548b1db`, `b4e2ea1`, `df36f60`, `25fe59f`, `1005f56`, `2b4c116`, `133fad7`, `ac409c1`, `7f13329`, `844ec8d`, `5818ba6`, `756da0b`, `e30a0c1` |
 | 3. Serving | BentoML batchable Runner, Locust, batch scoring, nginx canary; batching and rollback fixes; measurements | `9d5bd4a`, `9340734`, `795727a`, `cdf317d`, `a8196ef`, `cafa030` |
-| 4. Evaluation and optimization | one-shot final test evaluation and robustness; optimization out of scope | `78bea08` |
+| 4. Evaluation and CPU runtimes | one-shot final test evaluation and robustness; OpenVINO CPU path and benchmark; optimization out of scope | `78bea08`, phase-7 commit |
 | 5. Monitoring | drift features, three detectors, scorecard, Evidently, `/metrics`, Prometheus/Pushgateway/Grafana, alerts | `15abeed` |
 
 ## Dataset and license

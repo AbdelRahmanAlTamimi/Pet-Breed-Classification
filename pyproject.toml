@@ -41,6 +41,9 @@ monitor = [
     "scikit-learn==1.9.1",
     "scipy==1.17.1",
 ]
+openvino = [
+    "openvino==2026.4.1",
+]
 serve = [
     "bentoml==1.4.30",
 ]

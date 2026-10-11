@@ -1,0 +1,29 @@
+{
+  "images": 200,
+  "batch_size": 1,
+  "warmup_runs": 50,
+  "threads": 6,
+  "cpu": "12th Gen Intel(R) Core(TM) i5-12500",
+  "onnx_sha256": "58165e216e4a5e8945d6763801c31eef1bfc9a2a5ae348b607bb1098f0a88f72",
+  "versions": {
+    "onnxruntime": "1.30.0",
+    "openvino": "2026.4.1-22982-e213a147257-releases/2026/4"
+  },
+  "latency": {
+    "onnxruntime": {
+      "p50_ms": 12.153897499956656,
+      "p95_ms": 13.134442149566894,
+      "mean_ms": 12.35272080591676,
+      "timed_runs": 500
+    },
+    "openvino": {
+      "p50_ms": 13.93550400280219,
+      "p95_ms": 17.570456648172694,
+      "mean_ms": 14.329456051942543,
+      "timed_runs": 500
+    }
+  },
+  "top1_agreement": 1.0,
+  "max_abs_probability_diff": 2.408805658327129e-06,
+  "openvino_ir": "artifacts/openvino/model.xml"
+}

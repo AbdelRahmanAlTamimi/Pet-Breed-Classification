@@ -34,6 +34,8 @@ class Config(BaseSettings):
     REPORTS_DIR: Path = PROJECT_ROOT / "reports"
     OOD_SANITY_DIR: Path = DATA_ROOT / "ood_sanity"
     MODEL_VERSION: str = "v2"
+    # CPU inference engine for the predictor: "onnxruntime" (default) or "openvino".
+    RUNTIME: str = "onnxruntime"
     MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
     MAX_BATCH_FILES: int = 32
     LOW_RES_WARN_SIDE: int = 64
