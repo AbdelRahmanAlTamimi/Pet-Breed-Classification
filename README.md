@@ -1,22 +1,170 @@
 # Pet Breed Classifier
 
-Run the published CPU inference service and classify a local pet photo in three
-commands. Replace `/path/to/pet.jpg` with the image you want to classify.
+A calibrated 37-breed classifier for user-submitted pet photos (Oxford-IIIT Pet), served
+on CPU with ONNX Runtime. It returns the top-3 breeds with calibrated probabilities and
+answers `"uncertain"` instead of guessing when the calibrated confidence is below the
+abstention threshold.
+
+## Run it (3 commands)
 
 ```bash
 docker pull abdelrahmanaltamimi/pet-breed:latest
 docker compose up -d
-curl --fail-with-body --retry 30 --retry-delay 1 --retry-all-errors \
-  -X POST http://localhost:8000/predict \
-  -F "file=@/path/to/pet.jpg"
+curl --retry 30 --retry-delay 1 --retry-all-errors -F "file=@/path/to/pet.jpg" http://localhost:8000/predict
 ```
 
-The response includes the predicted breed, species, confidence, top three
-breeds, and whether the model is confident or uncertain.
+`docker compose up -d` uses `docker-compose.yml` in the repository root and serves on
+port 8000. Expected response shape (this one is model v2 on the val image
+`Abyssinian_10.jpg`):
 
-> Status (work in progress): the image tagged `latest` on Docker Hub was pushed on
-> 2026-10-05 and predates model v2. CI pushes a v2 image when the pull request is
-> merged to `main`. Until then, build v2 locally with `docker build -t pet-breed .`.
+```json
+{"breed":"Abyssinian","species":"cat","confidence":0.9793733225963039,
+ "top_3":[{"breed":"Abyssinian","probability":0.9793733225963039},
+          {"breed":"Egyptian_Mau","probability":0.006867481899213621},
+          {"breed":"Russian_Blue","probability":0.00637048607088967}],
+ "decision":"confident","model_version":"v2",
+ "correlation_id":"5fb84e84-49e7-411c-8347-0e2cc45d7e3d","latency_ms":24.92}
+```
+
+> **Docker Hub status:** the `latest` image on Docker Hub was pushed on 2026-10-05 and
+> predates model v2. CI pushes `latest` and `sha-<short>` when PR #4 is merged to
+> `main`, but only once the repository secrets `DOCKERHUB_USERNAME` and
+> `DOCKERHUB_TOKEN` exist. Until then, build v2 from source (see
+> [Reproduce](#reproduce)).
+
+Other endpoints: `GET /health` returns `{"status":"healthy","model_version":"v2","num_classes":37}`.
+`GET /metadata` returns the temperature, threshold and sha256. `POST /predict/batch`
+accepts up to 32 files. `GET /metrics` serves Prometheus metrics.
+
+## Status
+
+Evidence paths are relative to the repository root. "Owner" marks items only the
+repository owner can do.
+
+### Rubric
+
+| # | Area | Status | Evidence |
+|---|---|---|---|
+| 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `pip install -e .`, see [Final verification](#final-verification) |
+| 02 | API endpoint | done | `src/pet_breed_classification/api/`, `tests/test_api.py`; calibrated `/predict` with abstention |
+| 03 | Docker | partial | `Dockerfile`, `docker-compose.yml`; v2 builds and serves locally. Docker Hub `latest` is still pre-v2 until merge plus secrets (owner) |
+| 04 | MLflow tracking | done (screenshot owner) | 6 selection runs + final run, `PetBreedClassifier` alias `production`; `reports/mlflow_comparison.png` is the owner's to take |
+| 05 | DVC data versioning | partial | `dvc.yaml`, `dvc.lock`; `dvc repro train` reproduces top-1 exactly. No public remote: reviewers rebuild from the official archives (`data/README.md`) instead of `dvc pull` |
+| 06 | GitHub Actions CI/CD | partial | `.github/workflows/ci.yml`; PR run green (lint, test, quality-gate, docker build). Push to Docker Hub needs secrets and a merge (owner) |
+| 07 | Production serving | done | BentoML service `serving/`, Locust reports `reports/locust_*.html`, p95 below |
+| 08 | Monitoring | done (screenshot owner) | `monitoring/`, `reports/drift_scorecard.csv`, alert rules; `reports/grafana_dashboard.png` is the owner's to take |
+| 09 | Peer review | not done (owner) | written by the owner, not part of this repository |
+| 10 | README & architecture | done | this file |
+
+### Track C checklist: code, packaging, tracking, versioning
+
+| Item | Status | Evidence |
+|---|---|---|
+| `src/` layout with `pyproject.toml`, clean-checkout tests pass with uv | done | see [Final verification](#final-verification) |
+| Manifest JSON and corruption suite from committed scripts; documented | done | `src/pet_breed_classification/data/`, `data/README.md` |
+| Label map committed and sorted; test asserts 37 entries | done | `data/label_map.json`, `tests/test_split_data.py` |
+| Model in a typed class, loaded once at startup | done | `predict.py` `PetBreedPredictor`, API lifespan |
+| Eval transform exported with the weights; train-path vs API-path logits agree to 1e-4 | done | `model_meta.json` `eval_transform`; `tests/test_predict.py`, `tests/test_serialization.py::test_real_validation_parity` |
+| `/predict` returns `{breed, species, confidence, top_3, decision, model_version}` | done | `api/schemas.py` |
+| Non-image, oversized upload and 4-channel PNG: 422 or 200, never 500, tested with curl | done | curl on the v2 container: 422, 422, 200; `tests/test_api.py` |
+| Temperature scaling on val; reliability diagram before/after | done | `reports/calibration.png`, `reports/calibration.json` |
+| Abstention threshold from calibrated scores; coverage and selective accuracy in README | done | [Calibration](#shipped-model-v2) |
+| `/health` used by the Docker healthcheck | done | `Dockerfile` `HEALTHCHECK` |
+| `docker build -t pet-breed .` passes; `docker compose up` serves on 8000 | done | root `Dockerfile` and `docker-compose.yml`; image `pet-breed:0.2.0` 1.58 GB |
+| README: exactly 3 commands | done | above |
+| MLflow tracking server running, UI accessible | done (local) | `docker/docker-compose.mlflow.yml` (PostgreSQL + MinIO + MLflow 3.17) |
+| >= 5 runs across >= 3 backbones with the required params/metrics | done | [MLflow runs](#mlflow-runs-and-model-selection) |
+| MLflow comparison screenshot | not done (owner) | `reports/mlflow_comparison.png` |
+| Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1, alias `production` |
+| Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | done | `data/raw/*.dvc`, `dvc.lock` |
+| `dvc repro` reproduces training within ±0.005 top-1 | done | difference 0.0 |
+| GitHub Actions: lint -> test -> docker build -> push on main | partial | push needs Docker Hub secrets (owner) |
+| CI fails if top-1 drops below baseline; documented | done | `scripts/quality_gate.py`, [Data versioning and CI](#data-versioning-and-ci) |
+
+### Track C checklist: serving, monitoring, optimization
+
+| Item | Status | Evidence |
+|---|---|---|
+| BentoML service with `batchable=True` Runner; `bentoml models list` shows it | done | `serving/service.py`; model tag `pet_breed_classifier:n5x6k3wfsgmvhnk3` (v2) |
+| `bentoml serve` runs `/predict` at localhost:8000 | done | Locust run against it |
+| Locust report before optimization | done | `reports/locust_fastapi.html`, `reports/locust_bentoml.html` |
+| ONNX export test: PyTorch vs ONNX logits within 1e-4 on 200 images | done | `tests/test_serialization.py::test_real_validation_parity` (needs local artifacts; skipped in CI) |
+| ONNX Runtime and OpenVINO CPU paths, p95 for both | see [OpenVINO](#onnx-runtime-vs-openvino-cpu) | |
+| TensorRT FP16 on Triton | not done (out of scope) | owner decision |
+| Locust after TensorRT | not done (out of scope) | owner decision |
+| Batch scoring >= 1,000 images to `data/scoring/output/` | done | 1,000 images, 43.96 images/s |
+| nginx canary 5/95; rollout stages in README | done | `serving/nginx/nginx.conf`, `serving/README.md` |
+| Embedding drift (domain classifier on penultimate features) logged per batch | done, but not usable as an alarm (80% false alarms on clean test) | `reports/drift_scorecard.csv` |
+| Cheap pixel-statistics detector logged per batch | done | same |
+| Confidence-distribution drift tracked separately | done | same |
+| Detector scorecard with false alarms on clean batches | done | [Monitoring](#monitoring-and-drift-module-5) |
+| Evidently report on the latest batch | done | `reports/evidently_latest_batch.html` |
+| Drift check after every batch scoring run | done | `batch.py` (`--no-drift` skips) |
+| Prometheus exposes drift scores and p95 | done | API `/metrics` + Pushgateway gauges |
+| Grafana >= 3 panels, screenshot in README | partial (screenshot owner) | provisioned 8-panel dashboard; `reports/grafana_dashboard.png` |
+| Drift alert -> Airflow retraining DAG -> triggered run in README | see [Retraining loop](#retraining-loop) | Airflow is not used |
+| Retraining quality gate: promote only if top-1 >= Production - 0.01 | see [Retraining loop](#retraining-loop) | `registry.promote_if_better` |
+| Structured pruning, INT8 PTQ, QAT, distillation, optimization benchmark table, worse-row explanations | not done (out of scope) | owner decision |
+| Final architecture diagram covering all 5 sessions | done | below |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph M1["Module 1-2: data and training"]
+    RAW["Oxford-IIIT Pet archives<br/>(DVC-tracked .tar.gz)"] --> SPLIT["split_index.json<br/>label_map.json"]
+    SPLIT --> CORR["dvc stage: generate_corruptions<br/>6 corruptions x 3 severities"]
+    CORR --> MAN["dvc stage: build_manifest<br/>+ validate_manifest"]
+    MAN --> TRAIN["dvc stage: train<br/>ResNet-50, export ONNX,<br/>temperature + threshold on val"]
+    TRAIN --> MLF[("MLflow 3.17<br/>PostgreSQL + MinIO")]
+    MLF --> REG["Registry: PetBreedClassifier<br/>alias production"]
+  end
+  subgraph M2["Module 2: CI/CD"]
+    GH["GitHub Actions<br/>lint -> test -> quality gate -> docker"] --> REL["release model-v2<br/>(model.onnx + meta, sha256-checked)"]
+    GH --> HUB["Docker Hub<br/>pet-breed:latest / sha-*"]
+  end
+  subgraph M3["Module 3-4: serving"]
+    API["FastAPI + ONNX Runtime<br/>(OpenVINO switch)"]
+    BENTO["BentoML batchable Runner"]
+    NGINX["nginx canary 95/5"] --> API
+    BATCH["batch scoring CLI"]
+  end
+  subgraph M5["Module 5: monitoring"]
+    DRIFT["drift check: embedding,<br/>pixel stats, confidence<br/>+ Evidently report"]
+    PGW["Pushgateway"] --> PROM["Prometheus<br/>alerts"]
+    PROM --> GRAF["Grafana dashboard"]
+    RETRAIN["retrain_on_drift<br/>storm guard -> fine-tune<br/>-> promote_if_better"]
+  end
+  REG --> REL --> HUB --> API
+  REG --> BENTO
+  API -- /metrics --> PROM
+  BATCH --> DRIFT --> PGW
+  DRIFT -- alarm --> RETRAIN --> MLF
+```
+
+## MLflow runs and model selection
+
+Selection rule, declared before results: the highest served-path val macro-F1 among the
+six runs below (ONNX Runtime CPU, after temperature scaling). Experiment
+`pet-breed-classification` on the local tracking server. All runs: batch 64, 10 epochs,
+AdamW, cosine schedule, AMP, seed 42, `git_dirty=false`.
+
+| Run | Backbone | lr | top-1 | macro-F1 | ECE | Temperature | Coverage | Selective acc. |
+|---|---|---|---|---|---|---|---|---|
+| r50-repro | resnet50 | 1e-4 | 0.9429 | 0.9436 | 0.0231 | 0.9148 | 0.8478 | 0.9808 |
+| **r50-lr-half** | resnet50 | 5e-5 | **0.9497** | **0.9499** | 0.0321 | 0.6785 | 0.8736 | 0.9813 |
+| r18-a | resnet18 | 1e-4 | 0.9185 | 0.9185 | 0.0405 | 0.6461 | 0.7731 | 0.9807 |
+| r18-lr-half | resnet18 | 5e-5 | 0.9076 | 0.9072 | 0.0333 | 0.5062 | 0.7704 | 0.9806 |
+| mnv3s-a | mobilenet_v3_small | 1e-4 | 0.8003 | 0.7991 | 0.0228 | 0.6502 | 0.4851 | 0.9804 |
+| mnv3s-lr-half | mobilenet_v3_small | 5e-5 | 0.7106 | 0.7079 | 0.0477 | 0.4454 | 0.3139 | 0.9827 |
+
+The winning configuration was retrained once on a clean tree as `r50-lr-half-final`
+(run_id `d05c2f2b9ca7481bb657acb5cc2b29f6`, commit `e1844b7`). Its metrics match
+`r50-lr-half` exactly, and it is the shipped model. Three earlier attempts named
+`r50-lr-half-final` are recorded as FAILED: they hung before epoch 1. The cause was
+not proven; tracking now fails fast when the server is unreachable. A
+`backfill-resnet50-existing-run` run records the pre-MLflow v1 model from files on
+disk.
 
 ## Shipped model (v2)
 
@@ -29,6 +177,21 @@ breeds, and whether the model is confident or uncertain.
 | Val top-1 / macro-F1 | 0.9497 / 0.9499 (served path, n=736) |
 | Temperature | 0.678530 (ECE 0.0568 -> 0.0321) |
 | Abstain threshold | 0.918166 (target selective accuracy 0.98; coverage 0.8736, selective accuracy 0.9813 on val) |
+
+**Calibration** (`reports/calibration.json`, reliability diagram
+`reports/calibration.png`): the temperature was fitted on val by minimizing NLL
+(0.2207 -> 0.1803). The threshold is the lowest calibrated confidence whose selective
+accuracy on val reaches 0.98. A 2-fold swap on val checks that this choice is not
+overfitted: fit T and the threshold on one half (368 images), evaluate on the other.
+
+| Fold | T | Threshold | Held-out coverage | Held-out selective accuracy |
+|---|---|---|---|---|
+| 0 | 0.6654 | 0.9099 | 0.8913 | 0.9756 |
+| 1 | 0.6898 | 0.9282 | 0.8587 | 0.9873 |
+| pooled | | | 0.8750 | 0.9814 |
+
+The in-sample threshold gives coverage 0.8736 and selective accuracy 0.9813, and the
+pooled held-out numbers are within 0.002 of them.
 
 MLflow 3 replaced the deprecated registry stages with aliases. In this project the
 alias `production` on `PetBreedClassifier` is what "promoted to Production" means.
@@ -244,3 +407,108 @@ After the last run, Prometheus `/api/v1/alerts` showed three firing alerts:
 (`job="petbreed_batch_drift"`, `severity="warning"`, active since
 2026-10-11T17:44:23Z). The Evidently report and `reports/drift/latest.json` are
 from that run.
+
+## ONNX Runtime vs OpenVINO (CPU)
+
+Not done yet. This section is filled in when the OpenVINO comparison has been
+measured.
+
+## Retraining loop
+
+Not done yet. This section is filled in when the drift-triggered retraining loop has
+been demonstrated. Airflow is not used.
+
+## Final verification
+
+Not run yet.
+
+## Reproduce
+
+**Data and training (DVC).** Download and verify the official archives as described in
+`data/README.md`, then run:
+
+```bash
+uv sync
+dvc repro            # corruptions, manifest, validation, training (GPU; MLflow off)
+dvc status           # "Data and pipelines are up to date."
+```
+
+The owner's machine also has a local DVC remote (`dvc pull` works there). No public
+remote is configured.
+
+**MLflow stack.**
+
+```bash
+cp docker/.env.example docker/.env   # then change the passwords
+docker compose -f docker/docker-compose.mlflow.yml up -d   # UI on http://127.0.0.1:5000
+PETBREED_MLFLOW_ENABLED=true uv run python -m pet_breed_classification.train \
+  --run-name my-run --lr 0.00005 --batch-size 64 --epochs 10
+```
+
+**Build the service from source.**
+
+```bash
+mkdir -p artifacts
+gh release download model-v2 --pattern model.onnx --pattern model_meta.json --dir artifacts
+sha256sum --check ci/model_sha256.txt
+docker build -t pet-breed .
+docker run --rm -p 8000:8000 pet-breed
+```
+
+**Quality gate.** CI fails if top-1 < baseline - 0.01, where top-1 comes from
+`reports/metrics.json` (written by `dvc repro train`) and the baseline from
+`reports/baseline_metrics.json`:
+`python scripts/quality_gate.py reports/metrics.json reports/baseline_metrics.json`.
+
+**Serving, monitoring and evaluation commands.**
+
+```bash
+uv run --group serve python serving/import_model.py      # BentoML model store
+BENTOML_CONFIG=serving/bentoml-config.yaml uv run --group serve bentoml serve serving/service.py:svc --port 8000
+uv run --group monitor python -m monitoring.thresholds    # clean-data thresholds
+uv run --group monitor python -m monitoring.scorecard     # detector scorecard
+uv run --group monitor python -m pet_breed_classification.batch --limit 1000   # scoring + drift check
+docker compose -f docker/docker-compose.monitoring.yml up -d                  # Grafana on 127.0.0.1:3001
+```
+
+## Known limitations
+
+- Airflow is not used. The retraining loop is a guarded Python call from the batch
+  drift check, not a DAG.
+- Optimization is out of scope by owner decision: no pruning, INT8 PTQ, QAT,
+  distillation, TensorRT/Triton or TFLite, and no optimization benchmark table.
+- MLflow runs locally (Docker Compose on 127.0.0.1); reviewers cannot open the
+  owner's UI.
+- The DVC remote is local; reviewers rebuild data from the official archives.
+- Both canary backends run the same v2 image, so the canary exercises routing and
+  rollback, not a model comparison. The automatic latency-based rollback guard is not
+  implemented.
+- The embedding drift detector false-alarms on 80% of clean test batches at its
+  clean-val threshold, so the pixel-statistics and confidence detectors are the
+  usable alarms.
+- On test, selective accuracy at the val-chosen threshold is 0.974, below the 0.98
+  target, and it drops to 0.83-0.92 under severity-3 corruptions.
+- Locust ran on the same host as the services, so client load affects the latencies.
+- Docker Hub `latest` predates v2 until PR #4 is merged with Docker Hub secrets set.
+- GitGuardian flags commit `548b1db` (`docker/docker-compose.mlflow.yml`) as a
+  "Generic Password". The line is the PostgreSQL URI built from `$$POSTGRES_USER` and
+  `$$POSTGRES_PASSWORD` environment references, with no literal secret; the owner
+  should mark it as a false positive.
+
+## Session changelog
+
+| Module | What landed | Key commits |
+|---|---|---|
+| 1. Packaging, API, Docker | dataset split, corruption suite, manifest, first ResNet-50, FastAPI `/predict` and `/health`, Docker image, tests | `63ddec9`, `58d588c`, `c3abfb9`, `49971f8`, PR #2 `cca208b` |
+| 2. MLflow, DVC, CI | MLflow stack; temperature scaling and abstention; ResNet-18 and MobileNetV3 backbones; isolated runs; registry helpers; DVC train stage; CI quality gate; final run shipped as v2; stable DVC hashes; CI on PRs | `548b1db`, `b4e2ea1`, `df36f60`, `25fe59f`, `1005f56`, `2b4c116`, `133fad7`, `ac409c1`, `7f13329`, `844ec8d`, `5818ba6`, `756da0b`, `e30a0c1` |
+| 3. Serving | BentoML batchable Runner, Locust, batch scoring, nginx canary; batching and rollback fixes; measurements | `9d5bd4a`, `9340734`, `795727a`, `cdf317d`, `a8196ef`, `cafa030` |
+| 4. Evaluation and optimization | one-shot final test evaluation and robustness; optimization out of scope | `78bea08` |
+| 5. Monitoring | drift features, three detectors, scorecard, Evidently, `/metrics`, Prometheus/Pushgateway/Grafana, alerts | `15abeed` |
+
+## Dataset and license
+
+Oxford-IIIT Pet Dataset: O. M. Parkhi, A. Vedaldi, A. Zisserman and C. V. Jawahar,
+"Cats and Dogs", IEEE Conference on Computer Vision and Pattern Recognition (CVPR),
+2012. https://www.robots.ox.ac.uk/~vgg/data/pets/. The dataset is distributed under
+the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0);
+the owner should verify this license line against the dataset page before submission.
