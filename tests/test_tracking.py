@@ -202,6 +202,33 @@ def test_enabled_run_logs_params_metrics_tags_and_artifacts(
     assert "--hash" not in contents
 
 
+def test_unreachable_tracking_server_fails_fast(
+    tracking_cfg: Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def must_not_be_called(*args: Any, **kwargs: Any) -> None:
+        raise AssertionError("MLflow must not be called when the server is unreachable")
+
+    monkeypatch.setattr(tracking.mlflow, "set_experiment", must_not_be_called)
+    monkeypatch.setattr(tracking.mlflow, "start_run", must_not_be_called)
+    # Port 9 on loopback (discard) is closed, so the connection is refused immediately.
+    uri = "http://127.0.0.1:9"
+    with (
+        pytest.raises(RuntimeError, match="127.0.0.1:9 is unreachable"),
+        tracking_run("unreachable", tracking_uri=uri),
+    ):
+        pass
+
+
+def test_proxied_artifacts_default_but_respect_explicit_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", raising=False)
+    monkeypatch.setenv("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "true")
+    tracking.use_proxied_artifacts()
+    assert tracking.os.environ["MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD"] == "false"
+    assert tracking.os.environ["MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD"] == "true"
+
+
 def test_git_tags_match_the_repository(tracking_cfg: Config) -> None:
     with tracking_run("git-tags") as tracker:
         run_id = tracker.run_id

@@ -12,6 +12,7 @@ from mlflow.tracking import MlflowClient
 
 from .artifacts import _sha256
 from .config import cfg
+from .tracking import use_proxied_artifacts
 
 logger = logging.getLogger(__name__)
 MODEL_NAME = "PetBreedClassifier"
@@ -19,6 +20,7 @@ PRODUCTION_ALIAS = "production"
 
 
 def _client(tracking_uri: str | None = None) -> MlflowClient:
+    use_proxied_artifacts()
     return MlflowClient(tracking_uri or cfg.MLFLOW_TRACKING_URI)
 
 

@@ -15,6 +15,8 @@ def registry_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     monkeypatch.setenv("MLFLOW_ALLOW_FILE_STORE", "true")
     monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
     mlflow.set_tracking_uri((tmp_path / "mlruns").as_uri())
+    # Other test modules leave a global active experiment from a different store.
+    mlflow.set_experiment("registry-tests")
     return (tmp_path / "mlruns").as_uri()
 
 
