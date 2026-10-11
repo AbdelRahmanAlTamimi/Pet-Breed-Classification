@@ -16,10 +16,6 @@ stages:
       hash: md5
       md5: aca97eb5899f49f1859c75c481f66b87
       size: 170179
-    - path: src/pet_breed_classification/config.py
-      hash: md5
-      md5: a65a6b2fbdcb47794a0210b36d8f3573
-      size: 1835
     - path: src/pet_breed_classification/data/corruptions.py
       hash: md5
       md5: ce17a376e45d7d5e007e79c5b5ba2e10
@@ -51,10 +47,6 @@ stages:
       hash: md5
       md5: aca97eb5899f49f1859c75c481f66b87
       size: 170179
-    - path: src/pet_breed_classification/config.py
-      hash: md5
-      md5: a65a6b2fbdcb47794a0210b36d8f3573
-      size: 1835
     - path: src/pet_breed_classification/data/build_manifest.py
       hash: md5
       md5: af91a205030d97c840ef113b3da14a4b
@@ -93,34 +85,36 @@ stages:
       hash: md5
       md5: 5b10ff50faeba89de7c011b1ecc93d39
       size: 3182
+    - path: data/raw/images
+      hash: md5
+      md5: 277f608c70d7bd7991e0cd5f5cc845c6.dir
+      size: 796502375
+      nfiles: 7393
     - path: data/split_index.json
       hash: md5
       md5: aca97eb5899f49f1859c75c481f66b87
       size: 170179
     - path: params.yaml
       hash: md5
-      md5: 433b58bb27e69597aa4d11c069cdf626
-      size: 128
+      md5: cd146eb9fc6513eff2993223c2e8b20e
+      size: 89
     - path: src
       hash: md5
-      md5: c894a1e82cef7c9bce944ee894c213c9.dir
-      size: 444274
-      nfiles: 52
+      md5: 94b48b2279c0635efd06d4a48e11d703.dir
+      size: 149071
+      nfiles: 22
     params:
       params.yaml:
         backbone: resnet50
         batch_size: 64
         epochs: 10
         lr: 5e-05
-        seed: 42
-        split_seed: 42
         target_selective_accuracy: 0.98
-        train_seed: 42
     outs:
     - path: artifacts/dvc_run/runs/dvc_train
       hash: md5
-      md5: e50fb2540d1e422249ac6aa5e331b448.dir
-      size: 188989103
+      md5: f2927a5402143514145ec7f212d4df45.dir
+      size: 188989094
       nfiles: 6
     - path: reports/metrics.json
       hash: md5
