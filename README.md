@@ -228,7 +228,7 @@ limit).
 | Service | Workers | `/predict` p50 / p95 / p99 (ms) | `/predict` RPS | All RPS | Failures | Report |
 |---|---|---|---|---|---|---|
 | FastAPI (container `pet-breed:0.2.0`) | 1 | 28 / 48 / 68 | 21.93 | 24.52 | 0 / 4,417 (0%) | `reports/locust_fastapi.html` |
-| BentoML, first run (`max_latency_ms=50`, per-image loop) | 1 + 1 runner | 31 / 58 / 75 | 22.31 | 24.80 | 346 / 4,468 (7.7%), all `503 Service Busy` on `/predict` | `reports/locust_bentoml_run1_latency50.html` |
+| BentoML, first run (`max_latency_ms=50`, per-image loop) | 1 + 1 runner | 31 / 58 / 75 | 22.31 | 24.80 | 346 / 4,468 (7.7%), all HTTP 503 on `/predict` (BentoML `ServiceUnavailable: Service Busy`) | `reports/locust_bentoml_run1_latency50.html` |
 | BentoML, fixed (`max_latency_ms=500`, one ORT call per batch) | 1 + 1 runner | 33 / 110 / 230 | 22.04 | 24.44 | 0 / 4,405 (0%) | `reports/locust_bentoml.html` |
 
 1-minute load average before -> after each run: FastAPI 0.18 -> 5.93; BentoML
@@ -288,7 +288,7 @@ and macro-F1: `reports/robustness.csv`.
 | Corruption | Sev 1 top-1 / cov / sel-acc | Sev 2 top-1 / cov / sel-acc | Sev 3 top-1 / cov / sel-acc |
 |---|---|---|---|
 | brightness_down | 0.910 / 0.825 / 0.973 | 0.901 / 0.812 / 0.973 | 0.903 / 0.766 / 0.980 |
-| brightness_up | 0.911 / 0.824 / 0.967 | 0.906 / 0.799 / 0.973 | 0.879 / 0.751 / 0.968 |
+| brightness_up | 0.911 / 0.824 / 0.967 | 0.906 / 0.799 / 0.972 | 0.879 / 0.751 / 0.968 |
 | downscale_upscale | 0.811 / 0.687 / 0.913 | 0.698 / 0.553 / 0.890 | 0.560 / 0.365 / 0.827 |
 | gaussian_blur | 0.880 / 0.769 / 0.969 | 0.788 / 0.606 / 0.932 | 0.516 / 0.203 / 0.897 |
 | jpeg_compression | 0.856 / 0.765 / 0.948 | 0.821 / 0.727 / 0.930 | 0.680 / 0.536 / 0.860 |
@@ -296,7 +296,7 @@ and macro-F1: `reports/robustness.csv`.
 
 Brightness shifts cost at most 4 points of top-1. Downscaling, blur and heavy JPEG
 cost up to 40 points. Abstention absorbs part of the damage, since coverage falls
-faster than selective accuracy, but selective accuracy still drops to 0.83-0.92 at
+faster than selective accuracy, but for downscale, blur and JPEG selective accuracy still drops to 0.83-0.92 at
 severity 3, so the threshold does not hold its 0.98 promise under these shifts.
 
 ## Monitoring and drift (Module 5)
@@ -339,11 +339,11 @@ Corrupted rows show detection rates; the clean test row shows false-alarm rates.
 | downscale_upscale | 3 | 10 | 100% | 100% | 100% | 0.645 |
 | gaussian_blur | 1 | 10 | 100% | 100% | 100% | 0.222 |
 | gaussian_blur | 2 | 10 | 100% | 100% | 100% | 0.400 |
-| gaussian_blur | 3 | 10 | 100% | 100% | 100% | 0.787 |
+| gaussian_blur | 3 | 10 | 100% | 100% | 100% | 0.788 |
 | jpeg_compression | 1 | 10 | 100% | 10% | 100% | 0.232 |
 | jpeg_compression | 2 | 10 | 100% | 100% | 100% | 0.281 |
 | jpeg_compression | 3 | 10 | 100% | 100% | 100% | 0.472 |
-| motion_blur | 1 | 10 | 100% | 100% | 100% | 0.241 |
+| motion_blur | 1 | 10 | 100% | 100% | 100% | 0.242 |
 | motion_blur | 2 | 10 | 100% | 100% | 100% | 0.415 |
 | motion_blur | 3 | 10 | 100% | 100% | 100% | 0.697 |
 
@@ -469,11 +469,11 @@ AUC 0.634, pixel score 273.4, confidence KS 0.209). The guard allowed the retrai
 | MLflow run | `retrain-drift-20261011-180926`, run_id `ba7419ee9d2f4803a6efe44f73ac0b46`, FINISHED, tag `trigger=drift_alarm` |
 | Fine-tuned from | `PetBreedClassifier@production` = version 1 (run `d05c2f2b`) |
 | Training-loop val accuracy | epoch 1: 0.9484; epoch 2: 0.9497 |
-| Served-path val (candidate) | top-1 0.9470, macro-F1 0.9472, ECE 0.0265, T 0.6794, threshold 0.8701, coverage 0.9062, selective accuracy 0.9805 |
+| Served-path val (candidate) | top-1 0.9470, macro-F1 0.9472, ECE 0.0265, T 0.6794, threshold 0.8701, coverage 0.9063, selective accuracy 0.9805 |
 | Production val top-1 | 0.9497 |
 | Gate | 0.9470 >= 0.9497 - 0.01 = 0.9397, so the candidate is **promoted** |
 | Registry after the run | version 2 registered (`onnx_sha256` `93f77e33...d523`); alias `production` moved from version 1 to version 2 |
-| ONNX parity | logged 0.0 in the batch process (cause not investigated); recomputed in a fresh process: 7.6e-6 (< 1e-4) |
+| ONNX parity | `max_logit_parity_diff` 7.6e-6 (< 1e-4) |
 
 Caveats, stated plainly:
 - The run is tagged `git_dirty=true` because the retraining code was not yet
@@ -569,7 +569,7 @@ docker compose -f docker/docker-compose.monitoring.yml up -d                  # 
   clean-val threshold, so the pixel-statistics and confidence detectors are the
   usable alarms.
 - On test, selective accuracy at the val-chosen threshold is 0.974, below the 0.98
-  target, and it drops to 0.83-0.92 under severity-3 corruptions.
+  target, and it drops to 0.83-0.92 under severity-3 downscale, blur and JPEG corruptions.
 - Locust ran on the same host as the services, so client load affects the latencies.
 - Docker Hub `latest` predates v2 until PR #4 is merged with Docker Hub secrets set.
 - GitGuardian flags commit `548b1db` (`docker/docker-compose.mlflow.yml`) as a

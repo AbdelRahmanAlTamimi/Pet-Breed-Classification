@@ -24,10 +24,12 @@ after the predictor has loaded and includes `model_version` and `num_classes`.
 Invalid bytes and uploads over `PETBREED_MAX_UPLOAD_BYTES` (10 MiB by default)
 are rejected as 4xx errors. Four-channel images are converted to RGB.
 
-Adaptive batching is enabled with `max_batch_size=8` and `max_latency_ms=50`.
-Eight is small enough to cap memory for 224x224 CPU inference, and 50 ms keeps
-the batching wait below the latency target while still coalescing concurrent
-requests.
+Adaptive batching is enabled with `max_batch_size=8` and `max_latency_ms=500`, and
+the runner scores each adaptive batch with one ONNX Runtime call. Eight is small
+enough to cap memory for 224x224 CPU inference. The first Locust run used 50 ms with
+per-image scoring; the batcher then rejected 8.6% of `/predict` requests as
+`Service Busy` because 50 ms was below one inference under load, so the budget was
+raised to 500 ms (see the top-level README).
 
 The service uses the model paths resolved by `cfg`: `PETBREED_ARTIFACTS_DIR`,
 `PETBREED_ONNX_PATH`, and `PETBREED_MODEL_META_PATH` can override them. No model
