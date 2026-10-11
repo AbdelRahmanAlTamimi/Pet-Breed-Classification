@@ -91,3 +91,47 @@ canary. The script now rewrites the file in place. Rollout stages are listed in
 1,000 rows in `data/scoring/output/batch_predictions.csv`. The 1-minute load
 average was 7.50 when the run started, which may have slowed it.
 `--input-dir PATH` scores any unlabeled image directory instead.
+
+## Final test evaluation (one shot, model frozen)
+
+`uv run python -m pet_breed_classification.evaluate_test` ran once on the official
+test split through the served path: ONNX Runtime on CPU, the shipped temperature
+0.678530 and the shipped threshold 0.918166. Nothing was changed after it ran. The
+module refuses to overwrite `reports/final_test_evaluation.json`.
+
+| Metric | Val (n=736) | Test (n=3,669) | Why they differ |
+|---|---|---|---|
+| top-1 | 0.9497 | 0.9182 | Val chose the winner among 6 runs, so its number is optimistically biased; test is unseen and 5x larger. |
+| macro-F1 | 0.9499 | 0.9173 | Same selection bias as top-1. |
+| ECE (calibrated) | 0.0321 | 0.0352 | The temperature was fitted on val, so it fits val slightly better. |
+| coverage | 0.8736 | 0.8449 | The model is less accurate on test, so fewer predictions clear the val-chosen threshold. |
+| selective accuracy | 0.9813 | 0.9739 | The threshold was set to reach 0.98 on val; on test it reaches 0.974, which misses the target by 0.6 points. |
+
+The 10 most-confused pairs (true -> predicted, count) on test:
+american_pit_bull_terrier -> staffordshire_bull_terrier 30;
+Egyptian_Mau -> Bengal 14; Ragdoll -> Birman 14;
+staffordshire_bull_terrier -> american_pit_bull_terrier 11; Abyssinian -> Bengal 10;
+american_pit_bull_terrier -> american_bulldog 10; Russian_Blue -> Bombay 10;
+Maine_Coon -> Bengal 9; staffordshire_bull_terrier -> american_bulldog 9;
+Birman -> Ragdoll 8. These are look-alike breeds, and they are why the service
+abstains rather than guessing. Confusion matrix: `reports/confusion_matrix.png`.
+
+### Robustness (corrupted test copies)
+
+For each corruption x severity, a seeded sample (seed 42) of n=1,000 of the 3,669
+corrupted test images went through the same served path. Full table, including ECE
+and macro-F1: `reports/robustness.csv`.
+
+| Corruption | Sev 1 top-1 / cov / sel-acc | Sev 2 top-1 / cov / sel-acc | Sev 3 top-1 / cov / sel-acc |
+|---|---|---|---|
+| brightness_down | 0.910 / 0.825 / 0.973 | 0.901 / 0.812 / 0.973 | 0.903 / 0.766 / 0.980 |
+| brightness_up | 0.911 / 0.824 / 0.967 | 0.906 / 0.799 / 0.973 | 0.879 / 0.751 / 0.968 |
+| downscale_upscale | 0.811 / 0.687 / 0.913 | 0.698 / 0.553 / 0.890 | 0.560 / 0.365 / 0.827 |
+| gaussian_blur | 0.880 / 0.769 / 0.969 | 0.788 / 0.606 / 0.932 | 0.516 / 0.203 / 0.897 |
+| jpeg_compression | 0.856 / 0.765 / 0.948 | 0.821 / 0.727 / 0.930 | 0.680 / 0.536 / 0.860 |
+| motion_blur | 0.866 / 0.752 / 0.967 | 0.794 / 0.588 / 0.947 | 0.625 / 0.300 / 0.920 |
+
+Brightness shifts cost at most 4 points of top-1. Downscaling, blur and heavy JPEG
+cost up to 40 points. Abstention absorbs part of the damage, since coverage falls
+faster than selective accuracy, but selective accuracy still drops to 0.83-0.92 at
+severity 3, so the threshold does not hold its 0.98 promise under these shifts.
