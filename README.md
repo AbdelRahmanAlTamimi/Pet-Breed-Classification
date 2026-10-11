@@ -34,3 +34,19 @@ MLflow 3 replaced the deprecated registry stages with aliases. In this project t
 alias `production` on `PetBreedClassifier` is what "promoted to Production" means.
 The previous shipped model (v1, ONNX sha256 `2695971d...d14a5d`) is kept locally in
 `artifacts/previous/`.
+
+## Data versioning and CI
+
+- `dvc repro train` (GPU, MLflow disabled) reproduced the shipped model's val metrics
+  exactly (top-1 0.9497282608695652, difference 0.0); a second `dvc repro train` is a
+  no-op and `dvc status` reports "Data and pipelines are up to date."
+- The DVC remote is local to the owner's machine (git-ignored `.dvc/config.local`).
+  Reviewers rebuild the data from the official archives; see `data/README.md`.
+- CI (`.github/workflows/ci.yml`): lint -> test (pytest, 70% coverage gate) ->
+  quality gate -> docker. The quality gate fails if val top-1 in
+  `reports/metrics.json` < top-1 in `reports/baseline_metrics.json` - 0.01. The
+  baseline is the shipped run's served-path val metrics, so for now the two files
+  are equal. Pull requests only build the image. Pushes to `main` also push
+  `latest` and `sha-<short>` to Docker Hub, but only when the repository secrets
+  `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` exist.
+- First green PR run: https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38157794666
