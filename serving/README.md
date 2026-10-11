@@ -81,10 +81,10 @@ count, wall-clock seconds, images/second, peak RSS, and row count.
 
 `docker/docker-compose.canary.yml` runs two copies of the existing local API
 image, `model-stable` and `model-canary`, behind Nginx on `127.0.0.1:8080`.
-The default image is `pet-breed:latest`; override it with
+The default image is the local v2 build `pet-breed:0.2.0`; override it with
 `PETBREED_API_IMAGE`. The compose file never builds or pulls an API image. The
-default Nginx image is `nginx:1.27-alpine`; use a locally available image with
-`NGINX_IMAGE` rather than pulling one.
+default Nginx image is pinned to `nginx:1.27.5-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10`;
+override it with `NGINX_IMAGE`.
 
 The initial weights are exact stable 95 / canary 5:
 
@@ -97,37 +97,25 @@ The proxy adds `X-Serving-Backend` containing the selected upstream address;
 map the address to `model-stable` or `model-canary` in the compose network when
 counting requests.
 
-Rollout stages are applied by editing the two upstream lines and reloading
-Nginx:
+Rollout stages are applied by editing the two upstream lines in
+`serving/nginx/nginx.conf` and running `nginx -t` and `nginx -s reload` in the
+`nginx` container. Rewrite the file in place (as `rollback.sh` does), because a
+single-file bind mount does not see a file replaced by `sed -i`.
 
-1. 5% canary: stable `weight=95`, canary `weight=5`.
-2. 25% canary: stable `weight=75`, canary `weight=25`.
-3. 50% canary: stable `weight=50`, canary `weight=50`.
-4. 100% canary: stable `weight=0` is represented by removing or disabling the stable line, and canary remains active.
+| Stage | `model-stable` line | `model-canary` line |
+|---|---|---|
+| 5% | `server model-stable:8000 weight=95;` | `server model-canary:8000 weight=5;` |
+| 25% | `server model-stable:8000 weight=75;` | `server model-canary:8000 weight=25;` |
+| 50% | `server model-stable:8000 weight=50;` | `server model-canary:8000 weight=50;` |
+| 100% | `server model-stable:8000 down;` | `server model-canary:8000 weight=100;` |
 
-`serving/rollback.sh` edits stable to `weight=100`, marks canary `down`, runs
-`nginx -t`, and reloads the running Nginx container. The automatic
-latency-based rollback guard was **not implemented**.
-
-The local API image may be older than the current calibrated artifact. If so,
-the canary measurement tests routing only and does not claim current-model
-calibration parity.
+`serving/rollback.sh` sets stable to `weight=100`, marks canary `down`, runs
+`nginx -t`, and reloads nginx. The automatic latency-based rollback guard is
+**not implemented**; rollback is a manual command.
 
 ## Recorded Results
 
-The measured artifact was `model.onnx` SHA-256
-`2695971db4a24d851bf3a931ee4c6a604ec3fb6a1a82377b7d8fc91660d14a5d` and
-`model_version=v1`. Batch scoring measured 1,000 trainval images in 20.7678 s
-at 48.1515 images/s, with peak RSS 1,403,792 KiB. The CSV had 1,000 data rows
-at `data/scoring/output/batch_predictions.csv`.
-
-Locust was **not run: machine busy**. The pre-run gate measured load average
-`4.80` with `nproc=12`, above the allowed `3.0`; the later check was `4.55`.
-No latency, RPS, or failure percentage is published, and neither HTML nor CSV
-Locust report was created. The exact commands remain above.
-
-The local API image `pet-breed:latest` contains the same model SHA and
-calibration values. Nginx empirical routing was **not verified** because no
-local Nginx binary or Nginx image was available and pulling was prohibited.
-Consequently, `nginx -t`, the 1,000-request split, and rollback timing are not
-reported as measurements.
+All results below use model v2 (`model.onnx` sha256
+`58165e216e4a5e8945d6763801c31eef1bfc9a2a5ae348b607bb1098f0a88f72`) on an
+Intel Core i5-12500 (6 cores, 12 threads). Locust ran on the same host as the
+service. See the top-level README for the summary table.

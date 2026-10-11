@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences
+POST,/predict,HTTPError('503 Server Error: Service Unavailable for url: /predict'),346
