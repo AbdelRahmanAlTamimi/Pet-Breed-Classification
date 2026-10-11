@@ -2,8 +2,9 @@
 
 Splits the scored images into batches, runs every detector with the frozen thresholds,
 writes reports/drift/latest.json, appends one line per batch to reports/drift/history.jsonl,
-saves an Evidently data-drift report for the latest batch, and pushes gauges to a
-Prometheus Pushgateway when ``PETBREED_PUSHGATEWAY_URL`` is set.
+saves an Evidently data-drift report for the latest batch, pushes gauges to a Prometheus
+Pushgateway when ``PETBREED_PUSHGATEWAY_URL`` is set, and hands any alarm to the guarded
+retraining loop in ``monitoring.retrain_on_drift``.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pet_breed_classification.config import cfg
 from .detectors import DETECTORS, check_batch
 from .features import PIXEL_STATS, FeatureExtractor, Features, subset
 from .reference import load_reference
+from .retrain_on_drift import on_drift_check
 from .thresholds import BATCH_SIZE, THRESHOLDS_PATH
 
 logger = logging.getLogger(__name__)
@@ -136,9 +138,11 @@ def run_drift_check(
         "any_alarm": any(any(batch["alarms"].values()) for batch in batches),
         "evidently_report": _relative(EVIDENTLY_PATH),
     }
-    LATEST_PATH.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     url = os.environ.get("PETBREED_PUSHGATEWAY_URL")
     if url:
         push_gauges(url, latest)
         logger.info("Pushed drift gauges to %s", url)
+    # An alarm may trigger a guarded fine-tune; its decision is part of the record.
+    summary["retrain"] = on_drift_check(len(paths), summary["any_alarm"])
+    LATEST_PATH.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     return summary

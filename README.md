@@ -48,7 +48,7 @@ repository owner can do.
 | 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `pip install -e .`, see [Final verification](#final-verification) |
 | 02 | API endpoint | done | `src/pet_breed_classification/api/`, `tests/test_api.py`; calibrated `/predict` with abstention |
 | 03 | Docker | partial | `Dockerfile`, `docker-compose.yml`; v2 builds and serves locally. Docker Hub `latest` is still pre-v2 until merge plus secrets (owner) |
-| 04 | MLflow tracking | done (screenshot owner) | 6 selection runs + final run, `PetBreedClassifier` alias `production`; `reports/mlflow_comparison.png` is the owner's to take |
+| 04 | MLflow tracking | done (screenshot owner) | 6 selection runs + final run + retrain run; `PetBreedClassifier` alias `production` (now version 2, see [Retraining loop](#retraining-loop)); `reports/mlflow_comparison.png` is the owner's to take |
 | 05 | DVC data versioning | partial | `dvc.yaml`, `dvc.lock`; `dvc repro train` reproduces top-1 exactly. No public remote: reviewers rebuild from the official archives (`data/README.md`) instead of `dvc pull` |
 | 06 | GitHub Actions CI/CD | partial | `.github/workflows/ci.yml`; PR run green (lint, test, quality-gate, docker build). Push to Docker Hub needs secrets and a merge (owner) |
 | 07 | Production serving | done | BentoML service `serving/`, Locust reports `reports/locust_*.html`, p95 below |
@@ -75,7 +75,7 @@ repository owner can do.
 | MLflow tracking server running, UI accessible | done (local) | `docker/docker-compose.mlflow.yml` (PostgreSQL + MinIO + MLflow 3.17) |
 | >= 5 runs across >= 3 backbones with the required params/metrics | done | [MLflow runs](#mlflow-runs-and-model-selection) |
 | MLflow comparison screenshot | not done (owner) | `reports/mlflow_comparison.png` |
-| Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1, alias `production` |
+| Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1 got alias `production`; the retrain gate later moved it to version 2 |
 | Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | done | `data/raw/*.dvc`, `dvc.lock` |
 | `dvc repro` reproduces training within ±0.005 top-1 | done | difference 0.0 |
 | GitHub Actions: lint -> test -> docker build -> push on main | partial | push needs Docker Hub secrets (owner) |
@@ -102,8 +102,8 @@ repository owner can do.
 | Drift check after every batch scoring run | done | `batch.py` (`--no-drift` skips) |
 | Prometheus exposes drift scores and p95 | done | API `/metrics` + Pushgateway gauges |
 | Grafana >= 3 panels, screenshot in README | partial (screenshot owner) | provisioned 8-panel dashboard; `reports/grafana_dashboard.png` |
-| Drift alert -> Airflow retraining DAG -> triggered run in README | see [Retraining loop](#retraining-loop) | Airflow is not used |
-| Retraining quality gate: promote only if top-1 >= Production - 0.01 | see [Retraining loop](#retraining-loop) | `registry.promote_if_better` |
+| Drift alert -> Airflow retraining DAG -> triggered run in README | partial | drift alarm -> guarded retrain -> triggered run `ba7419ee` shown below; no Airflow DAG |
+| Retraining quality gate: promote only if top-1 >= Production - 0.01 | done | `registry.promote_if_better`; the demo candidate (0.9470 vs 0.9497) was promoted |
 | Structured pruning, INT8 PTQ, QAT, distillation, optimization benchmark table, worse-row explanations | not done (out of scope) | owner decision |
 | Final architecture diagram covering all 5 sessions | done | below |
 
@@ -171,7 +171,7 @@ disk.
 | Item | Value |
 |---|---|
 | MLflow run | `r50-lr-half-final`, run_id `d05c2f2b9ca7481bb657acb5cc2b29f6` (experiment `pet-breed-classification`) |
-| Registry | `PetBreedClassifier` version 1, alias `production` |
+| Registry | `PetBreedClassifier` version 1. It held alias `production` until the drift-triggered retrain demo promoted version 2; see [Retraining loop](#retraining-loop) |
 | Backbone | ResNet-50, lr 5e-5, batch 64, 10 epochs, AdamW, cosine, AMP |
 | `model.onnx` sha256 | `58165e216e4a5e8945d6763801c31eef1bfc9a2a5ae348b607bb1098f0a88f72` |
 | Val top-1 / macro-F1 | 0.9497 / 0.9499 (served path, n=736) |
@@ -405,8 +405,11 @@ three batch runs with `PETBREED_PUSHGATEWAY_URL=http://127.0.0.1:9091`:
 After the last run, Prometheus `/api/v1/alerts` showed three firing alerts:
 `PetBreedDriftDetected` with `detector` = `pixel`, `confidence` and `embedding`
 (`job="petbreed_batch_drift"`, `severity="warning"`, active since
-2026-10-11T17:44:23Z). The Evidently report and `reports/drift/latest.json` are
-from that run.
+2026-10-11T17:44:23Z). The Evidently report and `reports/drift/latest.json` now
+come from the later retraining demo (1,000 `brightness_down` severity-3 images, see
+[Retraining loop](#retraining-loop)). `reports/drift/history.jsonl` holds every batch
+from all four runs, and `reports/drift/prometheus_alerts_demo.json` holds the alerts
+response.
 
 ## ONNX Runtime vs OpenVINO (CPU)
 
@@ -436,8 +439,52 @@ optimization was tried, since that is out of scope.
 
 ## Retraining loop
 
-Not done yet. This section is filled in when the drift-triggered retraining loop has
-been demonstrated. Airflow is not used.
+Airflow is not used. The loop is `monitoring/retrain_on_drift.py`, called by the batch
+drift check whenever a batch raises any drift alarm.
+
+1. **Storm guard** (state in the git-ignored `data/monitoring/retrain_state.json`): a
+   24 h cooldown, at most 1 retrain per UTC day, and at least 1,000 images scored since
+   the last retrain. The attempt is recorded before training starts, so a crash cannot
+   cause a retrain storm.
+2. **Fine-tune** the Production checkpoint (after checking that the registry's
+   Production sha256 equals the shipped model's) for 2 epochs, lr 1e-5, AdamW and
+   cosine. It trains on TRAIN images; with probability 0.5 each image gets a random
+   corruption at a random severity from the existing corruption functions. The
+   corrupted test sets are never used. MLflow tracking is on.
+3. **Evaluate** on val through the served path (export to ONNX, parity check,
+   temperature and threshold fitted on val), then register the run.
+4. **Gate:** `registry.promote_if_better(run_id, metric="top1", margin=0.01)` moves
+   alias `production` only if candidate top-1 >= Production top-1 - 0.01; otherwise
+   Production is kept. The candidate is never copied into `artifacts/`, and no image is
+   rebuilt.
+
+**Triggered run (2026-10-11):**
+`PETBREED_PUSHGATEWAY_URL=http://127.0.0.1:9091 uv run --group monitor python -m pet_breed_classification.batch --input-dir data/corrupted/brightness_down/severity_3 --limit 1000`
+scored 1,000 images. All 5 drift batches alarmed on all three detectors (latest batch:
+AUC 0.634, pixel score 273.4, confidence KS 0.209). The guard allowed the retrain
+(1,000 images scored, no earlier retrain), and the whole command took 97 s.
+
+| Item | Value |
+|---|---|
+| MLflow run | `retrain-drift-20261011-180926`, run_id `ba7419ee9d2f4803a6efe44f73ac0b46`, FINISHED, tag `trigger=drift_alarm` |
+| Fine-tuned from | `PetBreedClassifier@production` = version 1 (run `d05c2f2b`) |
+| Training-loop val accuracy | epoch 1: 0.9484; epoch 2: 0.9497 |
+| Served-path val (candidate) | top-1 0.9470, macro-F1 0.9472, ECE 0.0265, T 0.6794, threshold 0.8701, coverage 0.9062, selective accuracy 0.9805 |
+| Production val top-1 | 0.9497 |
+| Gate | 0.9470 >= 0.9497 - 0.01 = 0.9397, so the candidate is **promoted** |
+| Registry after the run | version 2 registered (`onnx_sha256` `93f77e33...d523`); alias `production` moved from version 1 to version 2 |
+| ONNX parity | logged 0.0 in the batch process (cause not investigated); recomputed in a fresh process: 7.6e-6 (< 1e-4) |
+
+Caveats, stated plainly:
+- The run is tagged `git_dirty=true` because the retraining code was not yet
+  committed when the demo ran (it is committed in the phase-8 commit).
+- Registry alias `production` now points to version 2, the retrained candidate, but
+  the shipped service (`artifacts/`, release `model-v2`, Docker image) still serves
+  version 1 (run `d05c2f2b`). Deployment is a separate manual step and was not done.
+  The candidate was trained on corrupted train images, and it was gated only on
+  clean val, where it is 0.27 points lower. Its robustness gain was not measured on
+  the corruption suite.
+- The storm guard now blocks another retrain until 2026-10-12T18:09Z.
 
 ## Final verification
 
@@ -523,8 +570,8 @@ docker compose -f docker/docker-compose.monitoring.yml up -d                  # 
 | 1. Packaging, API, Docker | dataset split, corruption suite, manifest, first ResNet-50, FastAPI `/predict` and `/health`, Docker image, tests | `63ddec9`, `58d588c`, `c3abfb9`, `49971f8`, PR #2 `cca208b` |
 | 2. MLflow, DVC, CI | MLflow stack; temperature scaling and abstention; ResNet-18 and MobileNetV3 backbones; isolated runs; registry helpers; DVC train stage; CI quality gate; final run shipped as v2; stable DVC hashes; CI on PRs | `548b1db`, `b4e2ea1`, `df36f60`, `25fe59f`, `1005f56`, `2b4c116`, `133fad7`, `ac409c1`, `7f13329`, `844ec8d`, `5818ba6`, `756da0b`, `e30a0c1` |
 | 3. Serving | BentoML batchable Runner, Locust, batch scoring, nginx canary; batching and rollback fixes; measurements | `9d5bd4a`, `9340734`, `795727a`, `cdf317d`, `a8196ef`, `cafa030` |
-| 4. Evaluation and CPU runtimes | one-shot final test evaluation and robustness; OpenVINO CPU path and benchmark; optimization out of scope | `78bea08`, phase-7 commit |
-| 5. Monitoring | drift features, three detectors, scorecard, Evidently, `/metrics`, Prometheus/Pushgateway/Grafana, alerts | `15abeed` |
+| 4. Evaluation and CPU runtimes | one-shot final test evaluation and robustness; OpenVINO CPU path and benchmark; optimization out of scope | `78bea08`, `aab2b8d` |
+| 5. Monitoring and retraining | drift features, three detectors, scorecard, Evidently, `/metrics`, Prometheus/Pushgateway/Grafana, alerts; drift-triggered retraining loop | `15abeed`, phase-8 commit |
 
 ## Dataset and license
 
