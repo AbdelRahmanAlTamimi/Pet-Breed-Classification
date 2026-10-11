@@ -61,7 +61,7 @@ jobs:
       - name: Build image
         run: |
           SHORT_SHA="${GITHUB_SHA::7}"
-          docker build -f docker/Dockerfile \
+          docker build \
             -t "pet-breed:0.1.${GITHUB_RUN_NUMBER}" \
             -t "pet-breed:sha-${SHORT_SHA}" .
       - name: Push image when Docker Hub secrets exist

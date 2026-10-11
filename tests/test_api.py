@@ -10,7 +10,7 @@ from PIL import Image
 from pet_breed_classification import predict as predict_module
 from pet_breed_classification.api import main as api_main
 from pet_breed_classification.api.schemas import PredictionResponse
-from pet_breed_classification.config import Config
+from pet_breed_classification.config import Config, cfg
 from pet_breed_classification.predict import UncalibratedModelError
 
 
@@ -76,7 +76,7 @@ def test_predict_happy_path_and_correlation(
 
     assert response.status_code == 200
     parsed = PredictionResponse.model_validate(response.json())
-    assert parsed.model_version == "v1"
+    assert parsed.model_version == cfg.MODEL_VERSION
     assert parsed.correlation_id == response.headers["x-request-id"]
 
 

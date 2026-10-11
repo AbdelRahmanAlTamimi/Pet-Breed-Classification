@@ -9,3 +9,7 @@ __pycache__
 artifacts/*
 !artifacts/model.onnx
 !artifacts/model_meta.json
+.env
+.env.*
+docker/.env
+.dvc/

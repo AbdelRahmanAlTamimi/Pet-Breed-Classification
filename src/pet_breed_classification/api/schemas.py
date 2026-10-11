@@ -64,7 +64,7 @@ class BatchPredictionResponse(BaseModel):
             "examples": [
                 {
                     "predictions": [],
-                    "model_version": "v1",
+                    "model_version": "v2",
                     "correlation_id": "00000000-0000-0000-0000-000000000000",
                     "latency_ms": 12.3,
                 }
@@ -84,7 +84,7 @@ class HealthResponse(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "examples": [
-                {"status": "healthy", "model_version": "v1", "num_classes": 37}
+                {"status": "healthy", "model_version": "v2", "num_classes": 37}
             ]
         }
     )
@@ -101,7 +101,7 @@ class MetadataResponse(BaseModel):
         json_schema_extra={
             "examples": [
                 {
-                    "model_version": "v1",
+                    "model_version": "v2",
                     "backbone": "resnet50",
                     "framework": "onnxruntime",
                     "opset": 17,
