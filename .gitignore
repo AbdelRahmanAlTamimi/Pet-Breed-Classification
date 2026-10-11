@@ -36,6 +36,7 @@ data/raw/*
 /data/processed/*.json
 # Owner-supplied out-of-distribution sanity photos: local only, never committed.
 /data/ood_sanity/
+/data/scoring/output/
 models/
 checkpoints/
 runs/

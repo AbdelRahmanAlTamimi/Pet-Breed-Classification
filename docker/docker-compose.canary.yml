@@ -1,0 +1,22 @@
+services:
+  model-stable:
+    image: ${PETBREED_API_IMAGE:-pet-breed:latest}
+    container_name: model-stable
+    restart: "no"
+
+  model-canary:
+    image: ${PETBREED_API_IMAGE:-pet-breed:latest}
+    container_name: model-canary
+    restart: "no"
+
+  nginx:
+    image: ${NGINX_IMAGE:-nginx:1.27-alpine}
+    container_name: pet-breed-nginx
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ../serving/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - model-stable
+      - model-canary
+    restart: "no"
