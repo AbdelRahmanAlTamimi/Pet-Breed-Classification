@@ -100,9 +100,9 @@ stages:
       size: 89
     - path: src
       hash: md5
-      md5: 94b48b2279c0635efd06d4a48e11d703.dir
-      size: 149071
-      nfiles: 22
+      md5: 5a50193668faf303fea747e27f29d60b.dir
+      size: 168794
+      nfiles: 26
     params:
       params.yaml:
         backbone: resnet50
@@ -113,8 +113,8 @@ stages:
     outs:
     - path: artifacts/dvc_run/runs/dvc_train
       hash: md5
-      md5: f2927a5402143514145ec7f212d4df45.dir
-      size: 188989094
+      md5: 715fc19c3bec07118ffded48b8a8111e.dir
+      size: 188989103
       nfiles: 6
     - path: reports/metrics.json
       hash: md5
