@@ -1,0 +1,64 @@
+{
+  "checked_at": "2026-10-11T17:43:57.108921+00:00",
+  "source": "data/corrupted/brightness_down/severity_3",
+  "images": 200,
+  "batch_size": 200,
+  "batches": [
+    {
+      "n": 200,
+      "scores": {
+        "embedding": 0.6172974198168232,
+        "pixel": 274.1590199093274,
+        "confidence": 0.18445652173913044
+      },
+      "thresholds": {
+        "embedding": 0.5398997994698728,
+        "pixel": 2.4771212547196626,
+        "confidence": 0.09771739130434778
+      },
+      "alarms": {
+        "embedding": true,
+        "pixel": true,
+        "confidence": true
+      },
+      "pixel_p_values": {
+        "brightness": 4.56009797452653e-254,
+        "contrast": 6.933940180811171e-275,
+        "sharpness": 7.983541808344383e-90
+      },
+      "abstain_rate": 0.21,
+      "batch": 0,
+      "checked_at": "2026-10-11T17:43:57.108921+00:00",
+      "source": "data/corrupted/brightness_down/severity_3"
+    }
+  ],
+  "latest": {
+    "n": 200,
+    "scores": {
+      "embedding": 0.6172974198168232,
+      "pixel": 274.1590199093274,
+      "confidence": 0.18445652173913044
+    },
+    "thresholds": {
+      "embedding": 0.5398997994698728,
+      "pixel": 2.4771212547196626,
+      "confidence": 0.09771739130434778
+    },
+    "alarms": {
+      "embedding": true,
+      "pixel": true,
+      "confidence": true
+    },
+    "pixel_p_values": {
+      "brightness": 4.56009797452653e-254,
+      "contrast": 6.933940180811171e-275,
+      "sharpness": 7.983541808344383e-90
+    },
+    "abstain_rate": 0.21,
+    "batch": 0,
+    "checked_at": "2026-10-11T17:43:57.108921+00:00",
+    "source": "data/corrupted/brightness_down/severity_3"
+  },
+  "any_alarm": true,
+  "evidently_report": "reports/evidently_latest_batch.html"
+}

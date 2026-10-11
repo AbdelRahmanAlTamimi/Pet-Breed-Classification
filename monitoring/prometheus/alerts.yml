@@ -1,0 +1,23 @@
+groups:
+  - name: pet-breed
+    rules:
+      - alert: PetBreedDriftDetected
+        # Pushed by the batch drift check; 1 when a detector's score exceeds the
+        # threshold in reports/drift_thresholds.json.
+        expr: petbreed_drift_alarm == 1
+        labels:
+          severity: warning
+        annotations:
+          summary: "Drift detected by the {{ $labels.detector }} detector"
+          description: "The latest batch drift score exceeded its threshold (see petbreed_drift_score)."
+
+      - alert: PetBreedHighP95
+        expr: >-
+          histogram_quantile(0.95,
+            sum by (le) (rate(petbreed_request_duration_seconds_bucket{endpoint="/predict"}[5m]))
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "/predict p95 latency above 0.5 s for 5 minutes"

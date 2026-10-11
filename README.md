@@ -135,3 +135,112 @@ Brightness shifts cost at most 4 points of top-1. Downscaling, blur and heavy JP
 cost up to 40 points. Abstention absorbs part of the damage, since coverage falls
 faster than selective accuracy, but selective accuracy still drops to 0.83-0.92 at
 severity 3, so the threshold does not hold its 0.98 promise under these shifts.
+
+## Monitoring and drift (Module 5)
+
+Code lives in the top-level `monitoring/` package (dependency group `monitor`, pinned).
+The runtime image adds only `prometheus-client`.
+
+**Features per image:** the 2048-d penultimate embedding of the shipped
+`resnet50_best.pt` through the shared eval transform (CUDA); pixel statistics with
+numpy (brightness = mean luminance, contrast = luminance std, sharpness = variance of
+a 4-neighbour Laplacian); and the calibrated max probability from `PetBreedPredictor`.
+
+**Detectors per batch of 200 images:**
+
+| Detector | Statistic | Alarm rule | Threshold |
+|---|---|---|---|
+| Embedding drift | domain classifier (standardize -> PCA-50 -> logistic regression), 5-fold CV ROC-AUC, reference vs batch | AUC > threshold | 0.5399 (99th percentile over 50 clean val batches) |
+| Pixel statistics | two-sample KS per statistic vs reference; score = -log10(min p) | min p < 0.01/3 | 2.4771 (fixed Bonferroni rule; clean 99th percentile was 1.99) |
+| Confidence drift (tracked separately) | KS statistic of calibrated max probability vs val reference | KS > threshold | 0.0977 (99th percentile over 50 clean val batches) |
+
+References: clean train images for embedding and pixel statistics. For confidence, a
+seeded half of val (n=368), because training-image confidences are inflated; the
+other half supplied the clean threshold batches. Thresholds were set from clean data
+only (`reports/drift_thresholds.json`) and were not changed after the scorecard ran.
+
+**Scorecard** (`reports/drift_scorecard.csv`): 10 seeded batches of 200 per level.
+Corrupted rows show detection rates; the clean test row shows false-alarm rates.
+
+| Corruption | Severity | Batches | Embedding | Pixel stats | Confidence | Abstain rate |
+|---|---|---|---|---|---|---|
+| clean (control) | 0 | 10 | 80% | 0% | 10% | 0.161 |
+| brightness_down | 1 | 10 | 40% | 100% | 60% | 0.170 |
+| brightness_down | 2 | 10 | 50% | 100% | 100% | 0.190 |
+| brightness_down | 3 | 10 | 100% | 100% | 100% | 0.232 |
+| brightness_up | 1 | 10 | 80% | 100% | 50% | 0.175 |
+| brightness_up | 2 | 10 | 100% | 100% | 100% | 0.201 |
+| brightness_up | 3 | 10 | 100% | 100% | 100% | 0.262 |
+| downscale_upscale | 1 | 10 | 100% | 100% | 100% | 0.330 |
+| downscale_upscale | 2 | 10 | 100% | 100% | 100% | 0.442 |
+| downscale_upscale | 3 | 10 | 100% | 100% | 100% | 0.645 |
+| gaussian_blur | 1 | 10 | 100% | 100% | 100% | 0.222 |
+| gaussian_blur | 2 | 10 | 100% | 100% | 100% | 0.400 |
+| gaussian_blur | 3 | 10 | 100% | 100% | 100% | 0.787 |
+| jpeg_compression | 1 | 10 | 100% | 10% | 100% | 0.232 |
+| jpeg_compression | 2 | 10 | 100% | 100% | 100% | 0.281 |
+| jpeg_compression | 3 | 10 | 100% | 100% | 100% | 0.472 |
+| motion_blur | 1 | 10 | 100% | 100% | 100% | 0.241 |
+| motion_blur | 2 | 10 | 100% | 100% | 100% | 0.415 |
+| motion_blur | 3 | 10 | 100% | 100% | 100% | 0.697 |
+
+How to read it:
+- The pixel-statistics detector is the most useful alarm: 0% false alarms on clean
+  test, and every level detected except JPEG severity 1 (10%), which barely moves
+  brightness, contrast or sharpness.
+- The embedding detector is not usable at its current threshold. It fired on 80% of
+  clean test batches (mean AUC 0.562 vs threshold 0.540). Its threshold came from
+  val, whose 736 images were resampled into heavily overlapping batches, and that
+  did not capture how far clean test embeddings sit from train. Below 100% its
+  detection rates are indistinguishable from its false-alarm rate. The threshold was
+  not tuned on these results.
+- The confidence detector had 10% false alarms and caught everything except mild
+  brightness shifts. The abstain rate rises with severity (0.16 clean -> 0.79 for
+  blur severity 3).
+
+**Drift check after every batch run:** `pet_breed_classification.batch` runs the
+check by default (`--no-drift` skips it). It writes `reports/drift/latest.json`,
+appends to `reports/drift/history.jsonl`, and saves an Evidently DataDrift report
+on brightness, contrast, sharpness and max_confidence (latest batch vs clean val) to
+`reports/evidently_latest_batch.html`. When `PETBREED_PUSHGATEWAY_URL` is set, it
+pushes `petbreed_drift_score{detector}`, `petbreed_drift_alarm{detector}`,
+`petbreed_drift_threshold{detector}`, `petbreed_confidence_drift_ks` and
+`petbreed_batch_abstain_rate`. The Pushgateway adds its own `job`/`instance` grouping
+labels.
+
+**API metrics:** `GET /metrics` exposes `petbreed_request_duration_seconds`
+(histogram, labels `endpoint` and `status_class`), `petbreed_prediction_confidence`
+(histogram) and `petbreed_predictions_total{decision}`.
+
+**Stack:** `docker compose -f docker/docker-compose.monitoring.yml up -d` starts the
+v2 API (8000), Prometheus (9090), Pushgateway (9091) and Grafana (3001), all on
+127.0.0.1. Grafana's admin password comes from `GRAFANA_ADMIN_PASSWORD` in
+`docker/.env`. Prometheus config is hand-written in `monitoring/prometheus/` and
+includes a relabel config (`instance` = compose service name, `python_gc_*` dropped)
+and `honor_labels` for the Pushgateway. Alert rules:
+- `PetBreedDriftDetected`: `petbreed_drift_alarm == 1`, fires when any detector's
+  latest-batch score exceeds its threshold above.
+- `PetBreedHighP95`: `/predict` p95 > 0.5 s for 5 minutes. That is 10x the 48 ms
+  p95 measured under the 50-user Locust load.
+
+The dashboard "Pet Breed Service" is provisioned from `monitoring/grafana/` with 8
+panels: p95 latency with its 0.5 s line, request rate, one drift-score panel per
+detector with its threshold, abstain rate, a calibrated-confidence heatmap, and alarm
+status. After `down -v` and `up -d`, which removed both volumes, the dashboard (8
+panels, provisioned), the datasource and both alert rules came back.
+Screenshot: `reports/grafana_dashboard.png` (taken by the owner).
+
+**Demo (2026-10-11):** about 3 minutes of val-image Locust traffic (10 users), then
+three batch runs with `PETBREED_PUSHGATEWAY_URL=http://127.0.0.1:9091`:
+
+| Batch (200 images) | Embedding AUC | Pixel score | Confidence KS | Alarms |
+|---|---|---|---|---|
+| trainval, seeded shuffle | 0.490 | 0.60 | 0.112 | confidence only: about 80% of trainval is training data, which the model is overconfident on (abstain rate 0.035) |
+| clean val images (`--input-dir`) | 0.464 | 1.18 | 0.057 | none |
+| `brightness_down` severity 3 (`--input-dir`) | 0.617 | 274.16 | 0.184 | all three |
+
+After the last run, Prometheus `/api/v1/alerts` showed three firing alerts:
+`PetBreedDriftDetected` with `detector` = `pixel`, `confidence` and `embedding`
+(`job="petbreed_batch_drift"`, `severity="warning"`, active since
+2026-10-11T17:44:23Z). The Evidently report and `reports/drift/latest.json` are
+from that run.

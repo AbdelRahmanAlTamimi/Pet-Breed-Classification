@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import random
 import resource
 import time
 from pathlib import Path
@@ -130,6 +131,11 @@ def main() -> None:
         default=cfg.PROJECT_ROOT / "data" / "scoring" / "output" / "batch_predictions.csv",
     )
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    parser.add_argument(
+        "--no-drift",
+        action="store_true",
+        help="skip the drift check that otherwise runs after scoring",
+    )
     args = parser.parse_args()
     if args.limit is not None and args.limit <= 0:
         parser.error("--limit must be positive")
@@ -137,12 +143,46 @@ def main() -> None:
         parser.error("--batch-size must be positive")
 
     records = directory_records(args.input_dir) if args.input_dir else _trainval_records()
+    # Sources are sorted by breed; a seeded shuffle keeps --limit samples (and drift
+    # batches) mixed across classes instead of a single breed.
+    random.Random(cfg.SEED).shuffle(records)
     if args.limit is not None:
         if args.limit > len(records):
             parser.error(f"--limit exceeds available images ({len(records)})")
         records = records[: args.limit]
-    result = score_records(records, PetBreedPredictor.load(), args.output, batch_size=args.batch_size)
+    predictor = PetBreedPredictor.load()
+    result = score_records(records, predictor, args.output, batch_size=args.batch_size)
     print(json.dumps(result, indent=2))
+    if not args.no_drift:
+        run_drift(records, args.output, predictor, source=str(args.input_dir or "trainval"))
+
+
+def run_drift(
+    records: list[dict[str, Any]],
+    output_path: Path,
+    predictor: PetBreedPredictor,
+    *,
+    source: str,
+) -> None:
+    """Run the drift check on the scored images, reusing their served confidences."""
+    try:
+        from monitoring.drift_check import run_drift_check
+        from monitoring.features import FeatureExtractor
+    except ImportError as error:
+        raise SystemExit(
+            "The drift check needs the top-level monitoring package and the monitor group: "
+            "run from the repository root with `uv run --group monitor`, or pass --no-drift"
+        ) from error
+    with output_path.open(newline="", encoding="utf-8") as scored:
+        confidences = [float(row["confidence"]) for row in csv.DictReader(scored)]
+    summary = run_drift_check(
+        [Path(record["path"]) for record in records],
+        confidences,
+        source=source,
+        extractor=FeatureExtractor(predictor=predictor),
+    )
+    if summary is not None:
+        print(json.dumps({"drift_latest": summary["latest"], "any_alarm": summary["any_alarm"]}, indent=2))
 
 
 if __name__ == "__main__":

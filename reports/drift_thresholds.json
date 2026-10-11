@@ -1,0 +1,37 @@
+{
+  "thresholds": {
+    "embedding": 0.5398997994698728,
+    "pixel": 2.4771212547196626,
+    "confidence": 0.09771739130434778
+  },
+  "rules": {
+    "embedding": "alarm when 5-fold CV ROC-AUC > threshold (99th percentile on clean val)",
+    "pixel": "alarm when -log10(min KS p) > threshold, i.e. min p < 0.01/3",
+    "confidence": "alarm when KS statistic > threshold (99th percentile on clean val)"
+  },
+  "clean_bootstrap": {
+    "embedding": {
+      "p50": 0.48016101601931094,
+      "p99": 0.5398997994698728,
+      "max": 0.5517454205790975
+    },
+    "pixel": {
+      "p50": 0.5646339133050196,
+      "p99": 1.9922456687724408,
+      "max": 2.386517207572933
+    },
+    "confidence": {
+      "p50": 0.0646195652173913,
+      "p99": 0.09771739130434778,
+      "max": 0.1083695652173913
+    }
+  },
+  "bootstrap_batches": 50,
+  "batch_size": 200,
+  "seed": 42,
+  "reference": {
+    "embedding_and_pixel": "clean train images (n=2944)",
+    "confidence": "seeded half of clean val (n=368)",
+    "clean_batches": "embedding/pixel: clean val; confidence: the other val half"
+  }
+}

@@ -281,3 +281,48 @@ def test_startup_refuses_to_serve_an_uncalibrated_model(
         TestClient(api_main.app),
     ):
         pass
+
+
+def _metric_value(body: str, prefix: str) -> float:
+    """Return the value of the first exposition line starting with ``prefix``."""
+    for line in body.splitlines():
+        if line.startswith(prefix):
+            return float(line.rsplit(" ", 1)[1])
+    return 0.0
+
+
+def test_metrics_exposes_latency_confidence_and_decisions(
+    client: TestClient,
+    sample_image: Image.Image,
+    image_bytes,
+) -> None:
+    before = client.get("/metrics").text
+    response = client.post(
+        "/predict",
+        files={"file": ("pet.png", image_bytes(sample_image), "image/png")},
+    )
+    decision = response.json()["decision"]
+
+    metrics = client.get("/metrics")
+
+    assert metrics.status_code == 200
+    assert metrics.headers["content-type"].startswith("text/plain")
+    body = metrics.text
+    duration = 'petbreed_request_duration_seconds_count{endpoint="/predict",status_class="2xx"}'
+    decisions = f'petbreed_predictions_total{{decision="{decision}"}}'
+    assert _metric_value(body, duration) == _metric_value(before, duration) + 1
+    assert _metric_value(body, decisions) == _metric_value(before, decisions) + 1
+    assert _metric_value(body, "petbreed_prediction_confidence_count") == (
+        _metric_value(before, "petbreed_prediction_confidence_count") + 1
+    )
+
+
+def test_metrics_labels_unknown_paths_and_errors_by_class(client: TestClient) -> None:
+    client.get("/does-not-exist")
+    client.post("/predict", files={"file": ("empty.txt", b"")})
+
+    body = client.get("/metrics").text
+
+    assert 'endpoint="unmatched",status_class="4xx"' in body
+    assert 'endpoint="/predict",status_class="4xx"' in body
+    assert "/does-not-exist" not in body
