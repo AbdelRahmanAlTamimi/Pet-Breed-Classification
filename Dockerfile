@@ -1,7 +1,7 @@
 # Build prerequisite: artifacts/model.onnx and artifacts/model_meta.json must
-# exist locally. Create them with `uv run python -m pet_breed_classification.export`,
+# exist locally. Download them from the GitHub release model-v2 (see README),
 # then build from the repository root with:
-# docker build -f docker/Dockerfile -t pet-breed:0.1.0 .
+# docker build -t pet-breed .
 FROM python:3.11-slim AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:0.9.5 /uv /uvx /bin/

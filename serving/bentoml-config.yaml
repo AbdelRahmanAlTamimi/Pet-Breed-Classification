@@ -1,0 +1,7 @@
+version: 1
+
+api_server:
+  workers: 1
+
+runners:
+  workers_per_resource: 1

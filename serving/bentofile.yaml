@@ -1,0 +1,9 @@
+service: "serving/service.py:svc"
+
+include:
+  - "serving/service.py"
+  - "src/pet_breed_classification"
+
+python:
+  packages:
+    - "pet-breed-classification"

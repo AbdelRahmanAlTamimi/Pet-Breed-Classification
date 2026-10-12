@@ -1,0 +1,185 @@
+{
+  "checked_at": "2026-10-11T18:09:08.257378+00:00",
+  "source": "data/corrupted/brightness_down/severity_3",
+  "images": 1000,
+  "batch_size": 200,
+  "batches": [
+    {
+      "n": 200,
+      "scores": {
+        "embedding": 0.6173993018259936,
+        "pixel": 274.1590199093274,
+        "confidence": 0.18445652173913044
+      },
+      "thresholds": {
+        "embedding": 0.5398997994698728,
+        "pixel": 2.4771212547196626,
+        "confidence": 0.09771739130434778
+      },
+      "alarms": {
+        "embedding": true,
+        "pixel": true,
+        "confidence": true
+      },
+      "pixel_p_values": {
+        "brightness": 4.56009797452653e-254,
+        "contrast": 6.933940180811171e-275,
+        "sharpness": 7.983541808344383e-90
+      },
+      "abstain_rate": 0.21,
+      "batch": 0,
+      "checked_at": "2026-10-11T18:09:08.257378+00:00",
+      "source": "data/corrupted/brightness_down/severity_3"
+    },
+    {
+      "n": 200,
+      "scores": {
+        "embedding": 0.6211744222306919,
+        "pixel": 266.9825305368497,
+        "confidence": 0.15021739130434783
+      },
+      "thresholds": {
+        "embedding": 0.5398997994698728,
+        "pixel": 2.4771212547196626,
+        "confidence": 0.09771739130434778
+      },
+      "alarms": {
+        "embedding": true,
+        "pixel": true,
+        "confidence": true
+      },
+      "pixel_p_values": {
+        "brightness": 2.389718799304183e-230,
+        "contrast": 1.0410449053359725e-267,
+        "sharpness": 7.308742385021783e-104
+      },
+      "abstain_rate": 0.215,
+      "batch": 1,
+      "checked_at": "2026-10-11T18:09:08.257378+00:00",
+      "source": "data/corrupted/brightness_down/severity_3"
+    },
+    {
+      "n": 200,
+      "scores": {
+        "embedding": 0.6155269654551124,
+        "pixel": 283.92042023488415,
+        "confidence": 0.21097826086956523
+      },
+      "thresholds": {
+        "embedding": 0.5398997994698728,
+        "pixel": 2.4771212547196626,
+        "confidence": 0.09771739130434778
+      },
+      "alarms": {
+        "embedding": true,
+        "pixel": true,
+        "confidence": true
+      },
+      "pixel_p_values": {
+        "brightness": 5.330882000161101e-244,
+        "contrast": 1.2011016542538904e-284,
+        "sharpness": 1.663712968509817e-92
+      },
+      "abstain_rate": 0.24,
+      "batch": 2,
+      "checked_at": "2026-10-11T18:09:08.257378+00:00",
+      "source": "data/corrupted/brightness_down/severity_3"
+    },
+    {
+      "n": 200,
+      "scores": {
+        "embedding": 0.5958395701234653,
+        "pixel": 277.2543037181529,
+        "confidence": 0.17793478260869566
+      },
+      "thresholds": {
+        "embedding": 0.5398997994698728,
+        "pixel": 2.4771212547196626,
+        "confidence": 0.09771739130434778
+      },
+      "alarms": {
+        "embedding": true,
+        "pixel": true,
+        "confidence": true
+      },
+      "pixel_p_values": {
+        "brightness": 1.593303341065217e-246,
+        "contrast": 5.5679622460261074e-278,
+        "sharpness": 3.3422569665800614e-82
+      },
+      "abstain_rate": 0.26,
+      "batch": 3,
+      "checked_at": "2026-10-11T18:09:08.257378+00:00",
+      "source": "data/corrupted/brightness_down/severity_3"
+    },
+    {
+      "n": 200,
+      "scores": {
+        "embedding": 0.6336512941339525,
+        "pixel": 273.4068820939124,
+        "confidence": 0.20945652173913043
+      },
+      "thresholds": {
+        "embedding": 0.5398997994698728,
+        "pixel": 2.4771212547196626,
+        "confidence": 0.09771739130434778
+      },
+      "alarms": {
+        "embedding": true,
+        "pixel": true,
+        "confidence": true
+      },
+      "pixel_p_values": {
+        "brightness": 6.072092668754595e-253,
+        "contrast": 3.9184824507802436e-274,
+        "sharpness": 3.6646074409004956e-82
+      },
+      "abstain_rate": 0.16,
+      "batch": 4,
+      "checked_at": "2026-10-11T18:09:08.257378+00:00",
+      "source": "data/corrupted/brightness_down/severity_3"
+    }
+  ],
+  "latest": {
+    "n": 200,
+    "scores": {
+      "embedding": 0.6336512941339525,
+      "pixel": 273.4068820939124,
+      "confidence": 0.20945652173913043
+    },
+    "thresholds": {
+      "embedding": 0.5398997994698728,
+      "pixel": 2.4771212547196626,
+      "confidence": 0.09771739130434778
+    },
+    "alarms": {
+      "embedding": true,
+      "pixel": true,
+      "confidence": true
+    },
+    "pixel_p_values": {
+      "brightness": 6.072092668754595e-253,
+      "contrast": 3.9184824507802436e-274,
+      "sharpness": 3.6646074409004956e-82
+    },
+    "abstain_rate": 0.16,
+    "batch": 4,
+    "checked_at": "2026-10-11T18:09:08.257378+00:00",
+    "source": "data/corrupted/brightness_down/severity_3"
+  },
+  "any_alarm": true,
+  "evidently_report": "reports/evidently_latest_batch.html",
+  "retrain": {
+    "triggered": true,
+    "checked_at": "2026-10-11T18:09:26.007945+00:00",
+    "reason": "drift alarm",
+    "run_id": "ba7419ee9d2f4803a6efe44f73ac0b46",
+    "run_name": "retrain-drift-20261011-180926",
+    "registered_version": "2",
+    "candidate_val_top1": 0.9470108695652174,
+    "production_version": "1",
+    "production_val_top1": 0.9497282608695652,
+    "promoted": true,
+    "rule": "promote only if candidate top1 >= production top1 - 0.01"
+  }
+}

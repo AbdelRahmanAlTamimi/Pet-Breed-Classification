@@ -12,8 +12,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import subprocess
 import tempfile
+import urllib.error
+import urllib.request
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -53,6 +56,7 @@ UNRECORDED_PARAMS = (
     "optimizer",
     "scheduler",
 )
+HEALTH_TIMEOUT_SECONDS = 5
 BACKFILL_RUN_NAME = "backfill-resnet50-existing-run"
 BACKFILL_NOTE = (
     "git_commit, git_dirty, data_version and requirements.txt describe the checkout "
@@ -167,6 +171,40 @@ def run_tags() -> dict[str, str]:
     }
 
 
+def use_proxied_artifacts() -> None:
+    """Send artifact bytes through the tracking server instead of presigned S3 URLs.
+
+    The local stack advertises presigned multipart transfers whose URLs point at the
+    compose-internal ``minio`` host, which the host machine cannot resolve; the client then
+    retries for minutes. Explicit environment settings still win.
+    """
+    os.environ.setdefault("MLFLOW_ENABLE_PROXY_MULTIPART_DOWNLOAD", "false")
+    os.environ.setdefault("MLFLOW_ENABLE_PROXY_MULTIPART_UPLOAD", "false")
+
+
+def check_server_reachable(tracking_uri: str) -> None:
+    """Fail fast when an HTTP tracking server does not answer ``/health``.
+
+    Without this check an unreachable server makes the first MLflow call retry for many
+    minutes before training starts. Non-HTTP stores (file://, sqlite://) are not checked.
+    """
+    if not tracking_uri.startswith(("http://", "https://")):
+        return
+    url = f"{tracking_uri.rstrip('/')}/health"
+    try:
+        with urllib.request.urlopen(url, timeout=HEALTH_TIMEOUT_SECONDS) as response:
+            status = response.status
+    except (urllib.error.URLError, OSError) as error:
+        raise RuntimeError(
+            f"MLflow tracking server {tracking_uri} is unreachable ({error}); start it or "
+            "set PETBREED_MLFLOW_ENABLED=false"
+        ) from error
+    if status != 200:
+        raise RuntimeError(
+            f"MLflow tracking server {tracking_uri} returned HTTP {status} from /health"
+        )
+
+
 @contextmanager
 def tracking_run(
     run_name: str,
@@ -181,7 +219,10 @@ def tracking_run(
         yield Tracker(enabled=False)
         return
 
-    mlflow.set_tracking_uri(tracking_uri or cfg.MLFLOW_TRACKING_URI)
+    uri = tracking_uri or cfg.MLFLOW_TRACKING_URI
+    check_server_reachable(uri)
+    use_proxied_artifacts()
+    mlflow.set_tracking_uri(uri)
     mlflow.set_experiment(experiment or cfg.MLFLOW_EXPERIMENT)
     with mlflow.start_run(run_name=run_name) as run:
         run_id = run.info.run_id

@@ -36,8 +36,12 @@ data/raw/*
 /data/processed/*.json
 # Owner-supplied out-of-distribution sanity photos: local only, never committed.
 /data/ood_sanity/
+/data/scoring/output/
+# Cached drift features, rebuilt by `python -m monitoring.thresholds`.
+/data/monitoring/
 models/
 checkpoints/
 runs/
 logs/
+
 output.md

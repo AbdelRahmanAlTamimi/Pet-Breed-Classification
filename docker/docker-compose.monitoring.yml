@@ -1,0 +1,59 @@
+# Monitoring stack: the v2 API, Prometheus, Pushgateway and Grafana.
+# Every port is bound to 127.0.0.1. Grafana's admin password comes from docker/.env
+# (GRAFANA_ADMIN_PASSWORD); see docker/.env.example.
+#
+# Run from the repository root:
+#   docker compose -f docker/docker-compose.monitoring.yml up -d
+# Batch drift checks push to the Pushgateway with:
+#   PETBREED_PUSHGATEWAY_URL=http://127.0.0.1:9091 uv run --group monitor \
+#     python -m pet_breed_classification.batch --limit 200
+
+name: pet-breed-monitoring
+
+services:
+  api:
+    image: ${PETBREED_API_IMAGE:-pet-breed:0.2.0}
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+
+  pushgateway:
+    image: prom/pushgateway:v1.11.1
+    ports:
+      - "127.0.0.1:9091:9091"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ../monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+      - pushgateway
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in docker/.env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:

@@ -1,3 +1,7 @@
+# config.py is deliberately not a dependency of the data stages: it changes for
+# unrelated reasons (model version, serving limits) and would force a full
+# corruption rebuild. A config change that affects corruptions (SEED, VAL_RATIO,
+# CORRUPTION_SAMPLE_PER_CLASS) requires `dvc repro -f generate_corruptions`.
 stages:
   generate_corruptions:
     cmd: uv run python -m pet_breed_classification.data.corruptions
@@ -5,7 +9,6 @@ stages:
       - data/split_index.json
       - data/label_map.json
       - data/raw/images
-      - src/pet_breed_classification/config.py
       - src/pet_breed_classification/data/corruptions.py
     outs:
       - data/corrupted
@@ -17,7 +20,6 @@ stages:
       - data/label_map.json
       - data/raw/images
       - data/corrupted
-      - src/pet_breed_classification/config.py
       - src/pet_breed_classification/data/build_manifest.py
       - src/pet_breed_classification/data/corruptions.py
     outs:
@@ -29,3 +31,33 @@ stages:
       - data/processed/manifest.json
       - data/label_map.json
       - tests/test_manifest.py
+
+  train:
+    cmd: >-
+      PETBREED_MLFLOW_ENABLED=false uv run python -m pet_breed_classification.train
+      --run-name dvc_train
+      --backbone ${backbone}
+      --lr ${lr}
+      --batch-size ${batch_size}
+      --epochs ${epochs}
+      --target-selective-accuracy ${target_selective_accuracy}
+      --artifacts-dir artifacts/dvc_run
+      --metrics-path reports/metrics.json
+    deps:
+      - data/split_index.json
+      - data/label_map.json
+      - data/raw/images
+      - src
+      - params.yaml
+    params:
+      - backbone
+      - lr
+      - batch_size
+      - epochs
+      - target_selective_accuracy
+    outs:
+      - artifacts/dvc_run/runs/dvc_train
+    metrics:
+      # Committed to git so CI's quality gate can read it without DVC.
+      - reports/metrics.json:
+          cache: false

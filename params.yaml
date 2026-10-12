@@ -1,0 +1,5 @@
+backbone: resnet50
+lr: 0.00005
+batch_size: 64
+epochs: 10
+target_selective_accuracy: 0.98

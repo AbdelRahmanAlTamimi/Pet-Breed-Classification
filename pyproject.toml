@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=2.4.6",
     "onnxruntime>=1.30.0",
     "pillow>=12.3.0",
+    "prometheus-client>=0.23",
     "pydantic-settings>=2.15.0",
     "python-multipart>=0.0.32",
     "torch>=2.14.1",
@@ -30,6 +31,21 @@ dev = [
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.16.10",
+]
+loadtest = [
+    "locust==2.43.1",
+]
+monitor = [
+    "evidently==0.7.23",
+    "pandas==3.0.6",
+    "scikit-learn==1.9.1",
+    "scipy==1.17.1",
+]
+openvino = [
+    "openvino==2026.4.1",
+]
+serve = [
+    "bentoml==1.4.30",
 ]
 train = [
     "jupyter>=1.1.1",
@@ -50,6 +66,8 @@ default-groups = ["dev", "train"]
 exclude = ["notebooks"]
 
 [tool.pytest.ini_options]
+# Top-level packages outside src/ (monitoring, serving, scripts) import from the repo root.
+pythonpath = ["."]
 addopts = "--cov=src/pet_breed_classification --cov-fail-under=70 --cov-report=term-missing"
 
 [tool.coverage.run]

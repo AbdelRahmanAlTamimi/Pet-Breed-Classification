@@ -161,7 +161,7 @@ class PetBreedPredictor:
 
     def __init__(
         self,
-        session: ort.InferenceSession,
+        session: ort.InferenceSession | Any,
         metadata: dict[str, Any],
         *,
         require_calibration: bool = True,
@@ -219,9 +219,18 @@ class PetBreedPredictor:
             raise ValueError(
                 f"ONNX SHA-256 mismatch: expected {expected_sha}, got {actual_sha}"
             )
-        session = ort.InferenceSession(
-            str(model_path), providers=["CPUExecutionProvider"]
-        )
+        if cfg.RUNTIME == "openvino":
+            from .openvino_runtime import OpenVINOSession
+
+            session: Any = OpenVINOSession(model_path)
+        elif cfg.RUNTIME == "onnxruntime":
+            session = ort.InferenceSession(
+                str(model_path), providers=["CPUExecutionProvider"]
+            )
+        else:
+            raise ValueError(
+                f"PETBREED_RUNTIME must be 'onnxruntime' or 'openvino', got {cfg.RUNTIME!r}"
+            )
         return cls(session, metadata, require_calibration=require_calibration)
 
     def raw_logits(self, images: list[Image.Image]) -> FloatArray:

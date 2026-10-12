@@ -44,5 +44,6 @@ where they are more specific than the spec, they win.
 - Never look at test-set metrics before the final evaluation (see spec, Step 0.1).
   Model selection, calibration and thresholds use `val` only.
 - Report real numbers only (see the honesty clause in the spec).
-- Don't create git commits; the user reviews and commits.
+- Commit at the end of each phase with a `phase-<N>:` subject; never push to `main`,
+  force-push or merge pull requests. The user reviews and merges.
 - before any step check `docs/project_spec.md`

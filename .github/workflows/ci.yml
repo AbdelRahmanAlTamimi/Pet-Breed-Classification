@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --only-group dev
+      - run: uv run --no-sync ruff check .
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      # Default groups (dev, train); the coverage gate (70%) lives in pyproject.toml.
+      - run: uv sync --frozen
+      - run: uv run --no-sync pytest
+
+  quality-gate:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Standard library only: fails when top1 < baseline top1 - 0.01.
+      - run: python scripts/quality_gate.py reports/metrics.json reports/baseline_metrics.json
+
+  docker:
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download released model artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p artifacts
+          gh release download model-v2 --repo "$GITHUB_REPOSITORY" \
+            --pattern model.onnx --pattern model_meta.json --dir artifacts --clobber
+          sha256sum --check ci/model_sha256.txt
+      - name: Build image
+        run: docker build -t pet-breed:ci .
+      # Pull requests only build; pushes to main and manual runs also publish.
+      - name: Push image
+        if: ${{ github.event_name != 'pull_request' && env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
+        run: |
+          echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+          SHORT_SHA="${GITHUB_SHA::7}"
+          for tag in latest "sha-${SHORT_SHA}"; do
+            docker tag pet-breed:ci "$DOCKERHUB_USERNAME/pet-breed:${tag}"
+            docker push "$DOCKERHUB_USERNAME/pet-breed:${tag}"
+          done

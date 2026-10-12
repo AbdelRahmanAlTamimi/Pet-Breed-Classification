@@ -15,6 +15,7 @@ from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
@@ -22,6 +23,7 @@ from starlette.responses import Response
 from ..config import cfg
 from ..logging_conf import correlation_id_var, setup_logging
 from ..predict import PetBreedPredictor, Prediction, UncalibratedModelError
+from .metrics import REQUEST_DURATION, record_prediction, status_class
 from .schemas import (
     BatchPredictionResponse,
     BreedPrediction,
@@ -66,6 +68,18 @@ app = FastAPI(
 )
 
 
+def _endpoint(request: Request) -> str:
+    """Return the matched route template, so unknown paths share one label."""
+    route = request.scope.get("route")
+    return str(getattr(route, "path", "unmatched"))
+
+
+def _observe_duration(request: Request, status_code: int, started_at: float) -> None:
+    REQUEST_DURATION.labels(
+        endpoint=_endpoint(request), status_class=status_class(status_code)
+    ).observe(time.perf_counter() - started_at)
+
+
 def _correlation_id(request: Request) -> str:
     """Return the request correlation ID."""
     return str(getattr(request.state, "correlation_id", correlation_id_var.get()))
@@ -98,6 +112,7 @@ async def request_context(request: Request, call_next: Any) -> Response:
         response.headers["X-Request-ID"] = correlation_id
         return response
     except Exception:
+        _observe_duration(request, 500, started_at)
         duration_ms = (time.perf_counter() - started_at) * 1000
         logger.info(
             "Request completed",
@@ -111,6 +126,7 @@ async def request_context(request: Request, call_next: Any) -> Response:
         raise
     finally:
         if response is not None:
+            _observe_duration(request, response.status_code, started_at)
             duration_ms = (time.perf_counter() - started_at) * 1000
             logger.info(
                 "Request completed",
@@ -227,6 +243,7 @@ def _predict_one_bytes(
     started_at = time.perf_counter()
     prediction = predictor.predict_one(image)
     latency_ms = (time.perf_counter() - started_at) * 1000
+    record_prediction(prediction)
     logger.info(
         "Prediction served",
         extra={
@@ -258,6 +275,12 @@ async def health(request: Request) -> HealthResponse:
         model_version=str(predictor.metadata["model_version"]),
         num_classes=len(predictor.metadata["classes"]),
     )
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics() -> Response:
+    """Expose Prometheus metrics; available even when the model failed to load."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/metadata", response_model=MetadataResponse)
@@ -328,6 +351,7 @@ async def predict_batch(
         extra={"batch_size": len(predictions), "latency_ms": latency_ms},
     )
     for prediction in predictions:
+        record_prediction(prediction)
         logger.info(
             "Prediction served",
             extra={

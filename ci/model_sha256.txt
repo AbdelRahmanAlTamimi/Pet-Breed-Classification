@@ -1,0 +1,2 @@
+58165e216e4a5e8945d6763801c31eef1bfc9a2a5ae348b607bb1098f0a88f72  artifacts/model.onnx
+7d896bc0e1bb60fbda531f6e95c21f26a790b160110c6745db4d723bc3e1a7b8  artifacts/model_meta.json
