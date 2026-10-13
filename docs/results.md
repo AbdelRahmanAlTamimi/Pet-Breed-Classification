@@ -36,7 +36,7 @@ run and the retrain run):
 | Item | Value |
 |---|---|
 | MLflow run | `r50-lr-half-final`, run_id `d05c2f2b9ca7481bb657acb5cc2b29f6` (experiment `pet-breed-classification`) |
-| Registry | `PetBreedClassifier` version 1, alias `production`. Version 2 (the drift-triggered retrain candidate) holds `challenger`; see [Retraining loop](../README.md#retraining-loop) |
+| Registry | `PetBreedClassifier` version 1, alias `production`. Version 2 (the drift-triggered retrain candidate) holds `challenger`; see [Retraining loop](monitoring.md#retraining-loop) |
 | Backbone | ResNet-50, lr 5e-5, batch 64, 10 epochs, AdamW, cosine, AMP |
 | `model.onnx` sha256 | `58165e216e4a5e8945d6763801c31eef1bfc9a2a5ae348b607bb1098f0a88f72` |
 | Val top-1 / macro-F1 | 0.9497 / 0.9499 (served path, n=736) |
