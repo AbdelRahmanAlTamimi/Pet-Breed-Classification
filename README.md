@@ -49,7 +49,7 @@ repository owner can do.
 | 02 | API endpoint | done | `src/pet_breed_classification/api/`, `tests/test_api.py`; calibrated `/predict` with abstention |
 | 03 | Docker | done | `Dockerfile`, `docker-compose.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) pushed `latest` and `sha-64b0774` (digest `sha256:6598f14b…7af766`), serving v2; the 3 commands verified on 2026-10-13 |
 | 04 | MLflow tracking | done | 6 selection runs + final run + retrain run; `PetBreedClassifier`: alias `production` = version 1 (the shipped model), `challenger` = version 2 (`approval=pending`, see [Retraining loop](#retraining-loop)); comparison screenshot `reports/mlflow_comparison.png` |
-| 05 | DVC data versioning | partial (train re-record owner) | `dvc.yaml`, `dvc.lock`; public read-only remote on Cloudflare R2: `dvc pull` of the two archives and the manifest from a fresh clone verified on 2026-10-13, the full corrupted-set pull was not run (`data/README.md`). `dvc repro train` reproduced top-1 exactly on 2026-10-11; on this branch the `train` stage is stale until the owner re-runs it, see [Data versioning and CI](#data-versioning-and-ci) |
+| 05 | DVC data versioning | done | `dvc.yaml`, `dvc.lock`; public read-only remote on Cloudflare R2: `dvc pull` of the two archives and the manifest from a fresh clone verified on 2026-10-13, the full corrupted-set pull was not run (`data/README.md`). `dvc repro train` reproduced top-1 exactly on 2026-10-11 and again at `42607b8` on 2026-10-13; `dvc status` is clean and `dvc status -c -r storage` is in sync, see [Data versioning and CI](#data-versioning-and-ci) |
 | 06 | GitHub Actions CI/CD | done | `.github/workflows/ci.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) on `main` after merging PR #4: lint, test, quality-gate and docker all green, `latest` and `sha-64b0774` pushed (digest `sha256:6598f14b…7af766`) |
 | 07 | Production serving | done | BentoML service `serving/`, Locust reports `reports/locust_*.html`, p95 below |
 | 08 | Monitoring | done | `monitoring/`, `reports/drift_scorecard.csv`, alert rules; Grafana screenshot `reports/grafana_dashboard.png` in [Monitoring](#monitoring-and-drift-module-5) |
@@ -76,8 +76,8 @@ repository owner can do.
 | >= 5 runs across >= 3 backbones with the required params/metrics | done | [MLflow runs](#mlflow-runs-and-model-selection) |
 | MLflow comparison screenshot | done | `reports/mlflow_comparison.png`, shown in [MLflow runs](#mlflow-runs-and-model-selection) |
 | Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1 (the shipped model) holds alias `production`; the retrain candidate, version 2, holds `challenger` with `approval=pending` |
-| Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | partial | `data/raw/*.dvc`, `dvc.lock`; all data pushed to the R2 remote (`dvc status -c -r storage`: in sync). `dvc status` lists only `train` (`changed deps: src`, from phase-10.1) until the owner re-runs `dvc repro train` |
-| `dvc repro` reproduces training within ±0.005 top-1 | done (2026-10-11) | difference 0.0 at `146a496`; not re-run on this branch, where `train` is stale |
+| Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | done | `data/raw/*.dvc`, `dvc.lock`; all data and the `train` outputs pushed to the R2 remote (`dvc status -c -r storage`: in sync); `dvc status`: "Data and pipelines are up to date." (2026-10-13, `42607b8`) |
+| `dvc repro` reproduces training within ±0.005 top-1 | done | difference 0.0 at `146a496` (2026-10-11) and at `42607b8` (2026-10-13, `reports/metrics.json` unchanged) |
 | GitHub Actions: lint -> test -> docker build -> push on main | done | [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455): `latest` and `sha-64b0774`, digest `sha256:6598f14b…7af766` |
 | CI fails if top-1 drops below baseline; documented | done | `scripts/quality_gate.py`, [Data versioning and CI](#data-versioning-and-ci) |
 
@@ -211,6 +211,11 @@ The previous shipped model (v1, ONNX sha256 `2695971d...d14a5d`) is kept locally
 - `dvc repro train` (GPU, MLflow disabled) reproduced the shipped model's val metrics
   exactly (top-1 0.9497282608695652, difference 0.0); a second `dvc repro train` is a
   no-op and `dvc status` reports "Data and pipelines are up to date."
+- Phase-10.1 edited `src/pet_breed_classification/registry.py`, a dependency of the
+  `train` stage, so the owner re-ran `dvc repro train` on 2026-10-13 (commit
+  `42607b8`). `reports/metrics.json` is unchanged (top-1 0.9497282608695652, same md5
+  in `dvc.lock`); `dvc status` reports "Data and pipelines are up to date." and
+  `dvc status -c -r storage` reports "Cache and remote 'storage' are in sync."
 - DVC remotes: `public` (default, committed) is the read-only `r2.dev` HTTP URL of a
   Cloudflare R2 bucket; `storage` (S3 endpoint, used by the owner to push) and its
   credentials are only in the git-ignored `.dvc/config.local`. On 2026-10-13
@@ -227,10 +232,6 @@ The previous shipped model (v1, ONNX sha256 `2695971d...d14a5d`) is kept locally
   `data/raw/` as ignored, so workspace-wide `dvc push`/`status`/`pull` never saw
   `data/raw/*.dvc` and the archives had never been pushed to any remote. The rule now
   names the extracted directories and the archives explicitly.
-- On this branch `dvc status` reports `train: changed deps: modified: src`, because
-  phase-10.1 edited `src/pet_breed_classification/registry.py`, a dependency of the
-  `train` stage. Re-running `dvc repro train` was not done in this session; the owner
-  re-runs it, commits `dvc.lock` and pushes.
 - CI (`.github/workflows/ci.yml`): lint -> test (pytest, 70% coverage gate) ->
   quality gate -> docker. The quality gate fails if val top-1 in
   `reports/metrics.json` < top-1 in `reports/baseline_metrics.json` - 0.01. The
@@ -569,7 +570,9 @@ Caveats, stated plainly:
 
 ## Final verification
 
-Run on 2026-10-13 at commit `defd96f` (later commits change only documentation):
+Run on 2026-10-13 at commit `defd96f`; the DVC line was re-checked at `42607b8`.
+Later commits change only documentation, `.env.example`, `dvc.lock` and the Grafana
+screenshot:
 
 - Fresh `git clone` of `final-fixes` (default groups, no data or model artifacts):
   `uv run pytest` gave 215 passed and 8 skipped (optional groups, or local
@@ -582,8 +585,9 @@ Run on 2026-10-13 at commit `defd96f` (later commits change only documentation):
 - Registry: `get_model_version_by_alias` returns version 1 (run `d05c2f2b…`) for
   `production` and version 2 (run `ba7419ee…`, `approval=pending`) for `challenger`;
   the retrain loop's Production check against `artifacts/` passes.
-- DVC: see [Data versioning and CI](#data-versioning-and-ci). `dvc status` lists the
-  `train` stage as changed (`src`) until the owner re-runs `dvc repro train`.
+- DVC: `dvc status` reports "Data and pipelines are up to date." and
+  `dvc status -c -r storage` reports in sync; see
+  [Data versioning and CI](#data-versioning-and-ci).
 - No `.env`, `config.local`, `.onnx`, `.pt`, `.parquet` or `output.md` files are
   tracked, and no secret value from the local env files or `.dvc/config.local`
   appears in any of the 138 tracked files (the public `r2.dev` URL is in
@@ -652,8 +656,7 @@ docker compose -f docker/docker-compose.monitoring.yml up -d                  # 
   owner's UI.
 - The public DVC remote is an `r2.dev` URL, which Cloudflare rate-limits; a full
   pull of the 66,042 corrupted images may be throttled (`data/README.md` has the
-  fallback). The `train` stage is stale on this branch until the owner re-runs
-  `dvc repro train`.
+  fallback).
 - Both canary backends run the same v2 image, so the canary exercises routing and
   rollback, not a model comparison. The automatic latency-based rollback guard is not
   implemented.
