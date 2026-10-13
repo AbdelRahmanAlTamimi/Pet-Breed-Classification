@@ -48,7 +48,7 @@ repository owner can do.
 | 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `pip install -e .`, see [Final verification](#final-verification) |
 | 02 | API endpoint | done | `src/pet_breed_classification/api/`, `tests/test_api.py`; calibrated `/predict` with abstention |
 | 03 | Docker | done | `Dockerfile`, `docker-compose.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) pushed `latest` and `sha-64b0774` (digest `sha256:6598f14b…7af766`), serving v2; the 3 commands verified on 2026-10-13 |
-| 04 | MLflow tracking | done (screenshot owner) | 6 selection runs + final run + retrain run; `PetBreedClassifier` alias `production` (now version 2, see [Retraining loop](#retraining-loop)); `reports/mlflow_comparison.png` is the owner's to take |
+| 04 | MLflow tracking | done (screenshot owner) | 6 selection runs + final run + retrain run; `PetBreedClassifier`: alias `production` = version 1 (the shipped model), `challenger` = version 2 (`approval=pending`, see [Retraining loop](#retraining-loop)); `reports/mlflow_comparison.png` is the owner's to take |
 | 05 | DVC data versioning | partial | `dvc.yaml`, `dvc.lock`; `dvc repro train` reproduces top-1 exactly. No public remote: reviewers rebuild from the official archives (`data/README.md`) instead of `dvc pull` |
 | 06 | GitHub Actions CI/CD | done | `.github/workflows/ci.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) on `main` after merging PR #4: lint, test, quality-gate and docker all green, `latest` and `sha-64b0774` pushed (digest `sha256:6598f14b…7af766`) |
 | 07 | Production serving | done | BentoML service `serving/`, Locust reports `reports/locust_*.html`, p95 below |
@@ -75,7 +75,7 @@ repository owner can do.
 | MLflow tracking server running, UI accessible | done (local) | `docker/docker-compose.mlflow.yml` (PostgreSQL + MinIO + MLflow 3.17) |
 | >= 5 runs across >= 3 backbones with the required params/metrics | done | [MLflow runs](#mlflow-runs-and-model-selection) |
 | MLflow comparison screenshot | not done (owner) | `reports/mlflow_comparison.png` |
-| Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1 got alias `production`; the retrain gate later moved it to version 2 |
+| Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1 (the shipped model) holds alias `production`; the retrain candidate, version 2, holds `challenger` with `approval=pending` |
 | Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | done | `data/raw/*.dvc`, `dvc.lock` |
 | `dvc repro` reproduces training within ±0.005 top-1 | done | difference 0.0 |
 | GitHub Actions: lint -> test -> docker build -> push on main | done | [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455): `latest` and `sha-64b0774`, digest `sha256:6598f14b…7af766` |
@@ -103,7 +103,7 @@ repository owner can do.
 | Prometheus exposes drift scores and p95 | done | API `/metrics` + Pushgateway gauges |
 | Grafana >= 3 panels, screenshot in README | partial (screenshot owner) | provisioned 8-panel dashboard; `reports/grafana_dashboard.png` |
 | Drift alert -> Airflow retraining DAG -> triggered run in README | partial | drift alarm -> guarded retrain -> triggered run `ba7419ee` shown below; no Airflow DAG |
-| Retraining quality gate: promote only if top-1 >= Production - 0.01 | done | `registry.promote_if_better`; the demo candidate (0.9470 vs 0.9497) was promoted |
+| Retraining quality gate: promote only if top-1 >= Production - 0.01 | done | `registry.promote_if_better`; a passing candidate gets `challenger` only, Production needs a human. The demo candidate (0.9470 vs 0.9497) passed |
 | Structured pruning, INT8 PTQ, QAT, distillation, optimization benchmark table, worse-row explanations | not done (out of scope) | owner decision |
 | Final architecture diagram covering all 5 sessions | done | below |
 
@@ -117,7 +117,7 @@ flowchart LR
     CORR --> MAN["dvc stage: build_manifest<br/>+ validate_manifest"]
     MAN --> TRAIN["dvc stage: train<br/>ResNet-50, export ONNX,<br/>temperature + threshold on val"]
     TRAIN --> MLF[("MLflow 3.17<br/>PostgreSQL + MinIO")]
-    MLF --> REG["Registry: PetBreedClassifier<br/>alias production"]
+    MLF --> REG["Registry: PetBreedClassifier<br/>aliases production, challenger"]
   end
   subgraph M2["Module 2: CI/CD"]
     GH["GitHub Actions<br/>lint -> test -> quality gate -> docker"] --> REL["release model-v2<br/>(model.onnx + meta, sha256-checked)"]
@@ -133,7 +133,7 @@ flowchart LR
     DRIFT["drift check: embedding,<br/>pixel stats, confidence<br/>+ Evidently report"]
     PGW["Pushgateway"] --> PROM["Prometheus<br/>alerts"]
     PROM --> GRAF["Grafana dashboard"]
-    RETRAIN["retrain_on_drift<br/>storm guard -> fine-tune<br/>-> promote_if_better"]
+    RETRAIN["retrain_on_drift<br/>storm guard -> fine-tune<br/>-> gate -> challenger"]
   end
   REG --> REL --> HUB --> API
   REG --> BENTO
@@ -171,7 +171,7 @@ disk.
 | Item | Value |
 |---|---|
 | MLflow run | `r50-lr-half-final`, run_id `d05c2f2b9ca7481bb657acb5cc2b29f6` (experiment `pet-breed-classification`) |
-| Registry | `PetBreedClassifier` version 1. It held alias `production` until the drift-triggered retrain demo promoted version 2; see [Retraining loop](#retraining-loop) |
+| Registry | `PetBreedClassifier` version 1, alias `production`. Version 2 (the drift-triggered retrain candidate) holds `challenger`; see [Retraining loop](#retraining-loop) |
 | Backbone | ResNet-50, lr 5e-5, batch 64, 10 epochs, AdamW, cosine, AMP |
 | `model.onnx` sha256 | `58165e216e4a5e8945d6763801c31eef1bfc9a2a5ae348b607bb1098f0a88f72` |
 | Val top-1 / macro-F1 | 0.9497 / 0.9499 (served path, n=736) |
@@ -194,7 +194,10 @@ The in-sample threshold gives coverage 0.8736 and selective accuracy 0.9813, and
 pooled held-out numbers are within 0.002 of them.
 
 MLflow 3 replaced the deprecated registry stages with aliases. In this project the
-alias `production` on `PetBreedClassifier` is what "promoted to Production" means.
+alias `production` on `PetBreedClassifier` is what "promoted to Production" means, and
+`challenger` marks a candidate that passed the retrain gate and waits for a human.
+Naming: `model_version` `v2` in `model_meta.json` counts shipped artifacts (this is the
+second one), and that artifact is registry version 1.
 The previous shipped model (v1, ONNX sha256 `2695971d...d14a5d`) is kept locally in
 `artifacts/previous/`.
 
@@ -457,10 +460,24 @@ drift check whenever a batch raises any drift alarm.
    corrupted test sets are never used. MLflow tracking is on.
 3. **Evaluate** on val through the served path (export to ONNX, parity check,
    temperature and threshold fitted on val), then register the run.
-4. **Gate:** `registry.promote_if_better(run_id, metric="top1", margin=0.01)` moves
-   alias `production` only if candidate top-1 >= Production top-1 - 0.01; otherwise
-   Production is kept. The candidate is never copied into `artifacts/`, and no image is
-   rebuilt.
+4. **Gate:** `registry.promote_if_better(run_id, metric="top1", margin=0.01,
+   alias="challenger")` compares the candidate with the current `production` version
+   and sets alias `challenger` only if candidate top-1 >= Production top-1 - 0.01. The
+   gate never moves `production`: following the handbook's "never auto-promote to
+   Production", that needs a human. The candidate is never copied into `artifacts/`,
+   and no image is rebuilt.
+
+A human approves a challenger by moving the alias:
+
+```python
+from mlflow import MlflowClient
+client = MlflowClient("http://localhost:5000")
+client.set_registered_model_alias("PetBreedClassifier", "production", client.get_model_version_by_alias("PetBreedClassifier", "challenger").version)
+```
+
+Deploying it (new release, `artifacts/` and image) is a separate step. Until then the
+next retrain refuses to start, because it checks that the registry's Production
+sha256 equals the shipped model's.
 
 **Triggered run (2026-10-11):**
 `PETBREED_PUSHGATEWAY_URL=http://127.0.0.1:9091 uv run --group monitor python -m pet_breed_classification.batch --input-dir data/corrupted/brightness_down/severity_3 --limit 1000`
@@ -475,17 +492,19 @@ AUC 0.634, pixel score 273.4, confidence KS 0.209). The guard allowed the retrai
 | Training-loop val accuracy | epoch 1: 0.9484; epoch 2: 0.9497 |
 | Served-path val (candidate) | top-1 0.9470, macro-F1 0.9472, ECE 0.0265, T 0.6794, threshold 0.8701, coverage 0.9063, selective accuracy 0.9805 |
 | Production val top-1 | 0.9497 |
-| Gate | 0.9470 >= 0.9497 - 0.01 = 0.9397, so the candidate is **promoted** |
-| Registry after the run | version 2 registered (`onnx_sha256` `93f77e33...d523`); alias `production` moved from version 1 to version 2 |
+| Gate | 0.9470 >= 0.9497 - 0.01 = 0.9397, so the candidate passed |
+| Registry after the run | version 2 registered (`onnx_sha256` `93f77e33...d523`). The run used the old gate code, which moved `production` from version 1 to version 2 |
 | ONNX parity | `max_logit_parity_diff` 7.6e-6 (< 1e-4) |
 
 Caveats, stated plainly:
 - The run is tagged `git_dirty=true` because the retraining code was not yet
   committed when the demo ran (it is committed in the phase-8 commit).
-- Registry alias `production` now points to version 2, the retrained candidate, but
-  the shipped service (`artifacts/`, release `model-v2`, Docker image) still serves
-  version 1 (run `d05c2f2b`). Deployment is a separate manual step and was not done.
-  The candidate was trained on corrupted train images, and it was gated only on
+- On 2026-10-13 the alias was moved back by hand: `production` = version 1 (run
+  `d05c2f2b`, the shipped model), `challenger` = version 2 (run `ba7419ee`), and
+  version 2 is tagged `approval=pending` and `note=git_dirty run, not deployed`. The
+  gate code now sets only `challenger`. The shipped service (`artifacts/`, release
+  `model-v2`, Docker image) serves version 1.
+- The candidate was trained on corrupted train images, and it was gated only on
   clean val, where it is 0.27 points lower. Its robustness gain was not measured on
   the corruption suite.
 - The storm guard now blocks another retrain until 2026-10-12T18:09Z.
