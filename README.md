@@ -118,10 +118,10 @@ Full evidence and both Track C checklists: [docs/status.md](docs/status.md).
 
 ## Reproduce
 
-Needs uv, DVC (`uv tool install dvc`; the default remote is public HTTP, so no extra or
-credentials) and a GPU for training. Run `dvc` directly: each stage calls `uv run` itself.
-`dvc repro` runs with MLflow off, so the MLflow stack is optional. Archive fallback and
-md5 values: [data/README.md](data/README.md); every command: [docs/verification.md](docs/verification.md#reproduce).
+Needs uv, DVC (`uv tool install dvc`; public HTTP remote, no extra or credentials), Docker
+Compose v2, a logged-in `gh` CLI, a GPU for training and disk for 4,352,746,975 bytes of DVC
+data. Run `dvc` directly (stages call `uv run`); `dvc repro` runs with MLflow off. Fallback and
+md5 values: [data/README.md](data/README.md); all commands: [docs/verification.md](docs/verification.md#reproduce).
 
 ```bash
 uv sync
