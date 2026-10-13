@@ -34,13 +34,13 @@ repository owner can do.
 | `/predict` returns `{breed, species, confidence, top_3, decision, model_version}` | done | `api/schemas.py` |
 | Non-image, oversized upload and 4-channel PNG: 422 or 200, never 500, tested with curl | done | curl on the v2 container: 422, 422, 200; `tests/test_api.py` |
 | Temperature scaling on val; reliability diagram before/after | done | `reports/calibration.png`, `reports/calibration.json` |
-| Abstention threshold from calibrated scores; coverage and selective accuracy in README | done | [Calibration](../README.md#shipped-model-v2) |
+| Abstention threshold from calibrated scores; coverage and selective accuracy in README | done | [Calibration](results.md#shipped-model-v2) |
 | `/health` used by the Docker healthcheck | done | `Dockerfile` `HEALTHCHECK` |
 | `docker build -t pet-breed .` passes; `docker compose up` serves on 8000 | done | root `Dockerfile` and `docker-compose.yml`; image `pet-breed:0.2.0` 1.58 GB |
 | README: exactly 3 commands | done | above |
 | MLflow tracking server running, UI accessible | done (local) | `docker/docker-compose.mlflow.yml` (PostgreSQL + MinIO + MLflow 3.17) |
-| >= 5 runs across >= 3 backbones with the required params/metrics | done | [MLflow runs](../README.md#mlflow-runs-and-model-selection) |
-| MLflow comparison screenshot | done | `reports/mlflow_comparison.png`, shown in [MLflow runs](../README.md#mlflow-runs-and-model-selection) |
+| >= 5 runs across >= 3 backbones with the required params/metrics | done | [MLflow runs](results.md#mlflow-runs-and-model-selection) |
+| MLflow comparison screenshot | done | `reports/mlflow_comparison.png`, shown in [MLflow runs](results.md#mlflow-runs-and-model-selection) |
 | Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1 (the shipped model) holds alias `production`; the retrain candidate, version 2, holds `challenger` with `approval=pending` |
 | Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | done | `data/raw/*.dvc`, `dvc.lock`; all data and the `train` outputs pushed to the R2 remote (`dvc status -c -r storage`: in sync); `dvc status`: "Data and pipelines are up to date." (2026-10-13, `42607b8`) |
 | `dvc repro` reproduces training within ±0.005 top-1 | done | difference 0.0 at `146a496` (2026-10-11) and at `42607b8` (2026-10-13, `reports/metrics.json` unchanged) |
