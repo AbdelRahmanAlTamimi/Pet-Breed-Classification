@@ -100,8 +100,8 @@ stages:
       size: 89
     - path: src
       hash: md5
-      md5: 5a50193668faf303fea747e27f29d60b.dir
-      size: 168794
+      md5: 87cd3a1fa8cf0b3ee7230b4a641112e7.dir
+      size: 169142
       nfiles: 26
     params:
       params.yaml:
@@ -113,8 +113,8 @@ stages:
     outs:
     - path: artifacts/dvc_run/runs/dvc_train
       hash: md5
-      md5: 715fc19c3bec07118ffded48b8a8111e.dir
-      size: 188989103
+      md5: 28d92627b21a9ad5d679353a12a2b82a.dir
+      size: 188989095
       nfiles: 6
     - path: reports/metrics.json
       hash: md5
