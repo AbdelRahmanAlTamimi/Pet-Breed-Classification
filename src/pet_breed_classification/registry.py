@@ -17,6 +17,7 @@ from .tracking import use_proxied_artifacts
 logger = logging.getLogger(__name__)
 MODEL_NAME = "PetBreedClassifier"
 PRODUCTION_ALIAS = "production"
+CHALLENGER_ALIAS = "challenger"
 
 
 def _client(tracking_uri: str | None = None) -> MlflowClient:
@@ -66,13 +67,12 @@ def set_production(
     version: Any,
     name: str = MODEL_NAME,
     *,
+    alias: str = PRODUCTION_ALIAS,
     tracking_uri: str | None = None,
 ) -> None:
-    """Set the MLflow 3 alias used for the production version."""
-    _client(tracking_uri).set_registered_model_alias(
-        name, PRODUCTION_ALIAS, str(version.version)
-    )
-    logger.info("Set %s@%s to version %s", name, PRODUCTION_ALIAS, version.version)
+    """Set an MLflow 3 alias on a version; the default alias marks Production."""
+    _client(tracking_uri).set_registered_model_alias(name, alias, str(version.version))
+    logger.info("Set %s@%s to version %s", name, alias, version.version)
 
 
 def promote_if_better(
@@ -81,9 +81,15 @@ def promote_if_better(
     margin: float = 0.01,
     name: str = MODEL_NAME,
     *,
+    alias: str = PRODUCTION_ALIAS,
     tracking_uri: str | None = None,
 ) -> bool:
-    """Promote a registered candidate when it clears the production margin."""
+    """Give a registered candidate ``alias`` when it clears the production margin.
+
+    The candidate is always compared against the current ``production`` version. With
+    ``alias=CHALLENGER_ALIAS`` a passing candidate only becomes the challenger, and
+    Production stays where it is until a human moves it.
+    """
     if margin < 0:
         raise ValueError("margin must be non-negative")
     client = _client(tracking_uri)
@@ -101,7 +107,7 @@ def promote_if_better(
         production = None
 
     if production is None:
-        set_production(candidate, name, tracking_uri=tracking_uri)
+        set_production(candidate, name, alias=alias, tracking_uri=tracking_uri)
         return True
 
     production_run = client.get_run(production.run_id)
@@ -117,5 +123,5 @@ def promote_if_better(
         )
         return False
 
-    set_production(candidate, name, tracking_uri=tracking_uri)
+    set_production(candidate, name, alias=alias, tracking_uri=tracking_uri)
     return True

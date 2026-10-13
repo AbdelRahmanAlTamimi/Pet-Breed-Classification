@@ -8,9 +8,10 @@ data/monitoring/retrain_state.json.
 A permitted retrain fine-tunes the Production checkpoint for 2 epochs on TRAIN images with
 on-the-fly corruptions from the existing corruption functions (never the corrupted test
 sets), with MLflow tracking on. It calibrates on val, evaluates on val through the served
-ONNX path, registers the run, and calls ``registry.promote_if_better``: the candidate
-becomes Production only if its top-1 >= Production top-1 - 0.01. The candidate is never
-copied into artifacts/ and no image is rebuilt.
+ONNX path, registers the run, and calls ``registry.promote_if_better`` with the
+``challenger`` alias: the candidate becomes the challenger only if its top-1 >= Production
+top-1 - 0.01. The gate never moves ``production``; that needs a human approving the
+challenger. The candidate is never copied into artifacts/ and no image is rebuilt.
 """
 
 from __future__ import annotations
@@ -217,7 +218,9 @@ def fine_tune() -> dict[str, Any]:
     if run_id is None:
         raise RuntimeError("The retraining run did not start an MLflow run")
     version = registry.register_run(run_id)
-    promoted = registry.promote_if_better(run_id, metric="top1", margin=PROMOTION_MARGIN)
+    promoted = registry.promote_if_better(
+        run_id, metric="top1", margin=PROMOTION_MARGIN, alias=registry.CHALLENGER_ALIAS
+    )
     client = registry._client()
     production_top1 = float(
         client.get_run(client.get_model_version(registry.MODEL_NAME, production_version).run_id)
@@ -230,6 +233,9 @@ def fine_tune() -> dict[str, Any]:
         "candidate_val_top1": calibration.after["top1"],
         "production_version": production_version,
         "production_val_top1": production_top1,
-        "promoted": promoted,
-        "rule": f"promote only if candidate top1 >= production top1 - {PROMOTION_MARGIN}",
+        "promoted_to_challenger": promoted,
+        "rule": (
+            f"alias {registry.CHALLENGER_ALIAS} only if candidate top1 >= production top1 "
+            f"- {PROMOTION_MARGIN}; production needs human approval"
+        ),
     }

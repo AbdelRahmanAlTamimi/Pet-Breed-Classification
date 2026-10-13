@@ -13,7 +13,7 @@ NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 
 
 def _fake_retrain() -> dict[str, object]:
-    return {"run_id": "fake", "promoted": False}
+    return {"run_id": "fake", "promoted_to_challenger": False}
 
 
 def test_alarm_below_the_scored_image_minimum_is_blocked(tmp_path: Path) -> None:
