@@ -30,8 +30,10 @@ dist/
 # Local datasets and model artifacts
 # Only artifacts/resnet50_training_history.json is tracked; it is force-added.
 artifacts/
-data/raw/*
-!data/raw/*.dvc
+# Explicit entries: a data/raw/* rule makes DVC skip data/raw/ and miss its .dvc files.
+/data/raw/images/
+/data/raw/annotations/
+/data/raw/*.tar.gz
 /data/corrupted/
 /data/processed/*.json
 # Owner-supplied out-of-distribution sanity photos: local only, never committed.
