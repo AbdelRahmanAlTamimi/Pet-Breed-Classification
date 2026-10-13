@@ -57,6 +57,23 @@ def test_promote_if_better_rejects_below_margin(registry_store: str) -> None:
     )
 
 
+def test_passing_candidate_gets_challenger_and_production_stays(registry_store: str) -> None:
+    first = _run(registry_store, "first", 0.9)
+    second = _run(registry_store, "second", 0.895)
+    first_version = registry.register_run(first, tracking_uri=registry_store)
+    second_version = registry.register_run(second, tracking_uri=registry_store)
+    registry.set_production(first_version, tracking_uri=registry_store)
+
+    assert registry.promote_if_better(
+        second, margin=0.01, alias=registry.CHALLENGER_ALIAS, tracking_uri=registry_store
+    )
+    client = MlflowClient(registry_store)
+    challenger = client.get_model_version_by_alias(registry.MODEL_NAME, registry.CHALLENGER_ALIAS)
+    production = client.get_model_version_by_alias(registry.MODEL_NAME, registry.PRODUCTION_ALIAS)
+    assert challenger.version == second_version.version
+    assert production.version == first_version.version
+
+
 def test_register_requires_companion_artifacts(registry_store: str) -> None:
     with mlflow.start_run(run_name="incomplete") as run:
         run_id = run.info.run_id
