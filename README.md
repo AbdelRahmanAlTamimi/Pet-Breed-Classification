@@ -15,6 +15,7 @@ Needs Docker with Compose v2. Clone first, so `docker-compose.yml` is present:
 `git clone https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification.git && cd Pet-Breed-Classification`.
 The image already contains model v2; compose runs it as is, with no build and no `artifacts/`.
 Replace `/path/to/pet.jpg` with any cat or dog photo (for example JPEG or PNG, up to 10 MiB).
+The image is linux/amd64 only; on ARM hosts such as Apple Silicon it needs emulation (not tested).
 
 ```bash
 docker pull abdelrahmanaltamimi/pet-breed:latest
