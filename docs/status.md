@@ -14,11 +14,11 @@ repository owner can do.
 | 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `uv pip install -e .` into a fresh venv on 2026-10-11, see [Final verification](../README.md#final-verification) |
 | 02 | API endpoint | done | `src/pet_breed_classification/api/`, `tests/test_api.py`; calibrated `/predict` with abstention |
 | 03 | Docker | done | `Dockerfile`, `docker-compose.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) pushed `latest` and `sha-64b0774` (digest `sha256:6598f14b…7af766`), serving v2; the 3 commands verified on 2026-10-13 |
-| 04 | MLflow tracking | done | 6 selection runs + final run + retrain run; `PetBreedClassifier`: alias `production` = version 1 (the shipped model), `challenger` = version 2 (`approval=pending`, see [Retraining loop](../README.md#retraining-loop)); comparison screenshot `reports/mlflow_comparison.png` |
+| 04 | MLflow tracking | done | 6 selection runs + final run + retrain run; `PetBreedClassifier`: alias `production` = version 1 (the shipped model), `challenger` = version 2 (`approval=pending`, see [Retraining loop](monitoring.md#retraining-loop)); comparison screenshot `reports/mlflow_comparison.png` |
 | 05 | DVC data versioning | done | `dvc.yaml`, `dvc.lock`; public read-only remote on Cloudflare R2: `dvc pull` of the two archives and the manifest from a fresh clone verified on 2026-10-13, the full corrupted-set pull was not run (`data/README.md`). `dvc repro train` reproduced top-1 exactly on 2026-10-11 and again at `42607b8` on 2026-10-13; `dvc status` is clean and `dvc status -c -r storage` is in sync, see [Data versioning and CI](../README.md#data-versioning-and-ci) |
 | 06 | GitHub Actions CI/CD | done | `.github/workflows/ci.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) on `main` after merging PR #4: lint, test, quality-gate and docker all green, `latest` and `sha-64b0774` pushed (digest `sha256:6598f14b…7af766`) |
 | 07 | Production serving | done | BentoML service `serving/`, Locust reports `reports/locust_*.html`, p95 below |
-| 08 | Monitoring | done | `monitoring/`, `reports/drift_scorecard.csv`, alert rules; Grafana screenshot `reports/grafana_dashboard.png` in [Monitoring](../README.md#monitoring-and-drift-module-5) |
+| 08 | Monitoring | done | `monitoring/`, `reports/drift_scorecard.csv`, alert rules; Grafana screenshot `reports/grafana_dashboard.png` in [Monitoring](monitoring.md#monitoring-and-drift-module-5) |
 | 09 | Peer review | not done (owner) | written by the owner, not part of this repository |
 | 10 | README & architecture | done | this file |
 
@@ -63,11 +63,11 @@ repository owner can do.
 | Embedding drift (domain classifier on penultimate features) logged per batch | done, but not usable as an alarm (80% false alarms on clean test; a post-hoc val-reference variant has 20%) | `reports/drift_scorecard.csv` |
 | Cheap pixel-statistics detector logged per batch | done | same |
 | Confidence-distribution drift tracked separately | done | same |
-| Detector scorecard with false alarms on clean batches | done | [Monitoring](../README.md#monitoring-and-drift-module-5) |
+| Detector scorecard with false alarms on clean batches | done | [Monitoring](monitoring.md#monitoring-and-drift-module-5) |
 | Evidently report on the latest batch | done | `reports/evidently_latest_batch.html` |
 | Drift check after every batch scoring run | done | `batch.py` (`--no-drift` skips) |
 | Prometheus exposes drift scores and p95 | done | API `/metrics` + Pushgateway gauges |
-| Grafana >= 3 panels, screenshot in README | done | provisioned 8-panel dashboard; `reports/grafana_dashboard.png` (2026-10-13, live `/predict` traffic and a pushed `brightness_down` severity-3 batch: p95 under the 0.5 s line, all three drift scores above threshold, all three alarms firing), shown in [Monitoring](../README.md#monitoring-and-drift-module-5) |
+| Grafana >= 3 panels, screenshot in README | done | provisioned 8-panel dashboard; `reports/grafana_dashboard.png` (2026-10-13, live `/predict` traffic and a pushed `brightness_down` severity-3 batch: p95 under the 0.5 s line, all three drift scores above threshold, all three alarms firing), shown in [Monitoring](monitoring.md#monitoring-and-drift-module-5) |
 | Drift alert -> Airflow retraining DAG -> triggered run in README | partial | drift alarm -> guarded retrain -> triggered run `ba7419ee` shown below; no Airflow DAG |
 | Retraining quality gate: promote only if top-1 >= Production - 0.01 | done | `registry.promote_if_better`; a passing candidate gets `challenger` only, Production needs a human. The demo candidate (0.9470 vs 0.9497) passed |
 | Structured pruning, INT8 PTQ, QAT, distillation, optimization benchmark table, worse-row explanations | not done (out of scope) | owner decision |
