@@ -11,11 +11,11 @@ repository owner can do.
 
 | # | Area | Status | Evidence |
 |---|---|---|---|
-| 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `uv pip install -e .` into a fresh venv on 2026-10-11, see [Final verification](../README.md#final-verification) |
+| 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `uv pip install -e .` into a fresh venv on 2026-10-11, see [Final verification](verification.md#final-verification) |
 | 02 | API endpoint | done | `src/pet_breed_classification/api/`, `tests/test_api.py`; calibrated `/predict` with abstention |
 | 03 | Docker | done | `Dockerfile`, `docker-compose.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) pushed `latest` and `sha-64b0774` (digest `sha256:6598f14b…7af766`), serving v2; the 3 commands verified on 2026-10-13 |
 | 04 | MLflow tracking | done | 6 selection runs + final run + retrain run; `PetBreedClassifier`: alias `production` = version 1 (the shipped model), `challenger` = version 2 (`approval=pending`, see [Retraining loop](monitoring.md#retraining-loop)); comparison screenshot `reports/mlflow_comparison.png` |
-| 05 | DVC data versioning | done | `dvc.yaml`, `dvc.lock`; public read-only remote on Cloudflare R2: `dvc pull` of the two archives and the manifest from a fresh clone verified on 2026-10-13, the full corrupted-set pull was not run (`data/README.md`). `dvc repro train` reproduced top-1 exactly on 2026-10-11 and again at `42607b8` on 2026-10-13; `dvc status` is clean and `dvc status -c -r storage` is in sync, see [Data versioning and CI](../README.md#data-versioning-and-ci) |
+| 05 | DVC data versioning | done | `dvc.yaml`, `dvc.lock`; public read-only remote on Cloudflare R2: `dvc pull` of the two archives and the manifest from a fresh clone verified on 2026-10-13, the full corrupted-set pull was not run (`data/README.md`). `dvc repro train` reproduced top-1 exactly on 2026-10-11 and again at `42607b8` on 2026-10-13; `dvc status` is clean and `dvc status -c -r storage` is in sync, see [Data versioning and CI](verification.md#data-versioning-and-ci) |
 | 06 | GitHub Actions CI/CD | done | `.github/workflows/ci.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) on `main` after merging PR #4: lint, test, quality-gate and docker all green, `latest` and `sha-64b0774` pushed (digest `sha256:6598f14b…7af766`) |
 | 07 | Production serving | done | BentoML service `serving/`, Locust reports `reports/locust_*.html`, p95 below |
 | 08 | Monitoring | done | `monitoring/`, `reports/drift_scorecard.csv`, alert rules; Grafana screenshot `reports/grafana_dashboard.png` in [Monitoring](monitoring.md#monitoring-and-drift-module-5) |
@@ -26,7 +26,7 @@ repository owner can do.
 
 | Item | Status | Evidence |
 |---|---|---|
-| `src/` layout with `pyproject.toml`, clean-checkout tests pass with uv | done | see [Final verification](../README.md#final-verification) |
+| `src/` layout with `pyproject.toml`, clean-checkout tests pass with uv | done | see [Final verification](verification.md#final-verification) |
 | Manifest JSON and corruption suite from committed scripts; documented | done | `src/pet_breed_classification/data/`, `data/README.md` |
 | Label map committed and sorted; test asserts 37 entries | done | `data/label_map.json`, `tests/test_split_data.py` |
 | Model in a typed class, loaded once at startup | done | `predict.py` `PetBreedPredictor`, API lifespan |
@@ -45,7 +45,7 @@ repository owner can do.
 | Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | done | `data/raw/*.dvc`, `dvc.lock`; all data and the `train` outputs pushed to the R2 remote (`dvc status -c -r storage`: in sync); `dvc status`: "Data and pipelines are up to date." (2026-10-13, `42607b8`) |
 | `dvc repro` reproduces training within ±0.005 top-1 | done | difference 0.0 at `146a496` (2026-10-11) and at `42607b8` (2026-10-13, `reports/metrics.json` unchanged) |
 | GitHub Actions: lint -> test -> docker build -> push on main | done | [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455): `latest` and `sha-64b0774`, digest `sha256:6598f14b…7af766` |
-| CI fails if top-1 drops below baseline; documented | done | `scripts/quality_gate.py`, [Data versioning and CI](../README.md#data-versioning-and-ci) |
+| CI fails if top-1 drops below baseline; documented | done | `scripts/quality_gate.py`, [Data versioning and CI](verification.md#data-versioning-and-ci) |
 
 ### Track C checklist: serving, monitoring, optimization
 
