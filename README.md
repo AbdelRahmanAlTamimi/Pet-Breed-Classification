@@ -94,7 +94,7 @@ repository owner can do.
 | Locust after TensorRT | not done (out of scope) | owner decision |
 | Batch scoring >= 1,000 images to `data/scoring/output/` | done | 1,000 images, 43.96 images/s |
 | nginx canary 5/95; rollout stages in README | done | `serving/nginx/nginx.conf`, `serving/README.md` |
-| Embedding drift (domain classifier on penultimate features) logged per batch | done, but not usable as an alarm (80% false alarms on clean test) | `reports/drift_scorecard.csv` |
+| Embedding drift (domain classifier on penultimate features) logged per batch | done, but not usable as an alarm (80% false alarms on clean test; a post-hoc val-reference variant has 20%) | `reports/drift_scorecard.csv` |
 | Cheap pixel-statistics detector logged per batch | done | same |
 | Confidence-distribution drift tracked separately | done | same |
 | Detector scorecard with false alarms on clean batches | done | [Monitoring](#monitoring-and-drift-module-5) |
@@ -347,6 +347,13 @@ a 4-neighbour Laplacian); and the calibrated max probability from `PetBreedPredi
 | Pixel statistics | two-sample KS per statistic vs reference; score = -log10(min p) | min p < 0.01/3 | 2.4771 (fixed Bonferroni rule; clean 99th percentile was 1.99) |
 | Confidence drift (tracked separately) | KS statistic of calibrated max probability vs val reference | KS > threshold | 0.0977 (99th percentile over 50 clean val batches) |
 
+A fourth, **post-hoc** detector, `embedding_valref`, was added on 2026-10-13 after the
+scorecard below showed the embedding detector's clean-test false alarms. It is the
+same domain classifier, but its reference is the seeded val half used by the
+confidence detector (n=368), and its threshold, **0.5517**, is the 99th percentile
+over 50 batches of 200 drawn from the other val half (seed 42). It is scored in the
+scorecard only; the live drift check still runs the three detectors above.
+
 References: clean train images for embedding and pixel statistics. For confidence, a
 seeded half of val (n=368), because training-image confidences are inflated; the
 other half supplied the clean threshold batches. Thresholds were set from clean data
@@ -355,27 +362,27 @@ only (`reports/drift_thresholds.json`) and were not changed after the scorecard 
 **Scorecard** (`reports/drift_scorecard.csv`): 10 seeded batches of 200 per level.
 Corrupted rows show detection rates; the clean test row shows false-alarm rates.
 
-| Corruption | Severity | Batches | Embedding | Pixel stats | Confidence | Abstain rate |
-|---|---|---|---|---|---|---|
-| clean (control) | 0 | 10 | 80% | 0% | 10% | 0.161 |
-| brightness_down | 1 | 10 | 40% | 100% | 60% | 0.170 |
-| brightness_down | 2 | 10 | 50% | 100% | 100% | 0.190 |
-| brightness_down | 3 | 10 | 100% | 100% | 100% | 0.232 |
-| brightness_up | 1 | 10 | 80% | 100% | 50% | 0.175 |
-| brightness_up | 2 | 10 | 100% | 100% | 100% | 0.201 |
-| brightness_up | 3 | 10 | 100% | 100% | 100% | 0.262 |
-| downscale_upscale | 1 | 10 | 100% | 100% | 100% | 0.330 |
-| downscale_upscale | 2 | 10 | 100% | 100% | 100% | 0.442 |
-| downscale_upscale | 3 | 10 | 100% | 100% | 100% | 0.645 |
-| gaussian_blur | 1 | 10 | 100% | 100% | 100% | 0.222 |
-| gaussian_blur | 2 | 10 | 100% | 100% | 100% | 0.400 |
-| gaussian_blur | 3 | 10 | 100% | 100% | 100% | 0.788 |
-| jpeg_compression | 1 | 10 | 100% | 10% | 100% | 0.232 |
-| jpeg_compression | 2 | 10 | 100% | 100% | 100% | 0.281 |
-| jpeg_compression | 3 | 10 | 100% | 100% | 100% | 0.472 |
-| motion_blur | 1 | 10 | 100% | 100% | 100% | 0.242 |
-| motion_blur | 2 | 10 | 100% | 100% | 100% | 0.415 |
-| motion_blur | 3 | 10 | 100% | 100% | 100% | 0.697 |
+| Corruption | Severity | Batches | Embedding | Pixel stats | Confidence | Abstain rate | Embedding, val ref (post-hoc) |
+|---|---|---|---|---|---|---|---|
+| clean (control) | 0 | 10 | 80% | 0% | 10% | 0.161 | 20% |
+| brightness_down | 1 | 10 | 40% | 100% | 60% | 0.170 | 20% |
+| brightness_down | 2 | 10 | 50% | 100% | 100% | 0.190 | 70% |
+| brightness_down | 3 | 10 | 100% | 100% | 100% | 0.232 | 100% |
+| brightness_up | 1 | 10 | 80% | 100% | 50% | 0.175 | 40% |
+| brightness_up | 2 | 10 | 100% | 100% | 100% | 0.201 | 100% |
+| brightness_up | 3 | 10 | 100% | 100% | 100% | 0.262 | 100% |
+| downscale_upscale | 1 | 10 | 100% | 100% | 100% | 0.330 | 100% |
+| downscale_upscale | 2 | 10 | 100% | 100% | 100% | 0.442 | 100% |
+| downscale_upscale | 3 | 10 | 100% | 100% | 100% | 0.645 | 100% |
+| gaussian_blur | 1 | 10 | 100% | 100% | 100% | 0.222 | 100% |
+| gaussian_blur | 2 | 10 | 100% | 100% | 100% | 0.400 | 100% |
+| gaussian_blur | 3 | 10 | 100% | 100% | 100% | 0.788 | 100% |
+| jpeg_compression | 1 | 10 | 100% | 10% | 100% | 0.232 | 100% |
+| jpeg_compression | 2 | 10 | 100% | 100% | 100% | 0.281 | 100% |
+| jpeg_compression | 3 | 10 | 100% | 100% | 100% | 0.472 | 100% |
+| motion_blur | 1 | 10 | 100% | 100% | 100% | 0.242 | 100% |
+| motion_blur | 2 | 10 | 100% | 100% | 100% | 0.415 | 100% |
+| motion_blur | 3 | 10 | 100% | 100% | 100% | 0.697 | 100% |
 
 How to read it:
 - The pixel-statistics detector is the most useful alarm: 0% false alarms on clean
@@ -387,6 +394,15 @@ How to read it:
   did not capture how far clean test embeddings sit from train. Below 100% its
   detection rates are indistinguishable from its false-alarm rate. The threshold was
   not tuned on these results.
+- Post-hoc, after seeing the clean-test row above: the `embedding_valref` variant,
+  whose reference is val instead of the memorized train images, cuts clean-test false
+  alarms from 80% to 20% (mean AUC 0.542 vs threshold 0.552) and still detects every
+  level at 100% except mild brightness shifts (brightness_down 20% / 70% at severity
+  1 / 2, brightness_up 40% at severity 1). Because this revision was motivated by
+  test batches, its numbers are not an unbiased estimate. The rule set before seeing
+  them was to switch the live check only at <= 10% clean false alarms; 20% misses
+  that, so the live check was not switched (this decision was also made after seeing
+  test batches). Pixel statistics stays the primary alarm.
 - The confidence detector had 10% false alarms and caught everything except mild
   brightness shifts. The abstain rate rises with severity (0.16 clean -> 0.79 for
   blur severity 3).
@@ -631,7 +647,9 @@ docker compose -f docker/docker-compose.monitoring.yml up -d                  # 
   implemented.
 - The embedding drift detector false-alarms on 80% of clean test batches at its
   clean-val threshold, so the pixel-statistics and confidence detectors are the
-  usable alarms.
+  usable alarms. The post-hoc val-reference variant lowers that to 20%, still above
+  the 10% bar for switching the live check, and it was revised after seeing test
+  batches.
 - On test, selective accuracy at the val-chosen threshold is 0.974, below the 0.98
   target, and it drops to 0.83-0.92 under severity-3 downscale, blur and JPEG corruptions.
 - Locust ran on the same host as the services, so client load affects the latencies.
