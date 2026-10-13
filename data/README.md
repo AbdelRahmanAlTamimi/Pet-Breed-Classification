@@ -25,11 +25,32 @@ Downscale/upscale preserves the source aspect ratio: the shorter side is
 reduced to the severity target, then the image is resized back to its original
 dimensions.
 
-## Rebuilding without access to the DVC remote
+## Getting the data: `dvc pull` (primary)
 
-The DVC remote is local to the owner's machine (configured in the git-ignored
-`.dvc/config.local`), so a reviewer rebuilds the data from the official archives.
-The md5 values are the ones recorded in `data/raw/*.tar.gz.dvc`:
+The default DVC remote `public` (committed in `.dvc/config`) is a read-only HTTP view
+of a Cloudflare R2 bucket at an `r2.dev` URL, so no credentials are needed. It holds
+both archives, the corrupted test sets, the manifest and the `train` stage output
+(66,053 objects, 4,352,746,975 bytes on 2026-10-13). DVC is not a project dependency;
+install it once with `uv tool install dvc`.
+
+```bash
+dvc pull data/raw/annotations.tar.gz.dvc data/raw/images.tar.gz.dvc   # 811 MB, the archives
+md5sum data/raw/annotations.tar.gz data/raw/images.tar.gz              # must match the table below
+cd data/raw && tar xzf images.tar.gz && tar xzf annotations.tar.gz && cd ../..
+dvc pull                                                               # everything else, incl. 66,042 corrupted images
+```
+
+`r2.dev` URLs are rate-limited by Cloudflare and meant for light use, so a full pull of
+the 66,042 corrupted images can be throttled. If that happens, pull only the archives
+(first command) and rebuild the rest with `dvc repro`.
+
+The owner pushes with a separate S3 remote (`storage`) whose endpoint and credentials
+live only in the git-ignored `.dvc/config.local`.
+
+## Fallback: rebuild from the official archives
+
+If the DVC remote is unavailable, download the archives from the dataset site and
+rebuild. The md5 values are the ones recorded in `data/raw/*.tar.gz.dvc`:
 
 | Archive | URL | md5 |
 |---|---|---|
