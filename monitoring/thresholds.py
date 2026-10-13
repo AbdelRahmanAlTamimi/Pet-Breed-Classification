@@ -6,6 +6,10 @@ Clean val batches are drawn repeatedly and scored against the clean references. 
 detector's threshold is the 99th percentile of its statistic over those batches. The
 pixel detector keeps its fixed Bonferroni rule (min p < 0.01 / 3); its clean percentile is
 recorded for comparison only. The test split is never read here.
+
+The post-hoc ``embedding_valref`` threshold uses the val half that is the confidence
+reference as its reference, and 50 batches of 200 drawn from the other val half with
+its own generator, so the original three thresholds are unchanged.
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ from pet_breed_classification.config import cfg
 from pet_breed_classification.logging_conf import setup_logging
 
 from .detectors import (
+    EMBEDDING_VALREF,
     PIXEL_ALPHA,
     confidence_ks,
     embedding_auc,
@@ -30,7 +35,7 @@ from .detectors import (
     pixel_score,
 )
 from .features import subset
-from .reference import load_reference
+from .reference import Reference, load_reference
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +52,16 @@ def _summary(values: Sequence[float]) -> dict[str, float]:
         "p99": float(np.percentile(array, PERCENTILE)),
         "max": float(array.max()),
     }
+
+
+def embedding_valref_scores(reference: Reference, batches: int, batch_size: int) -> list[float]:
+    """Score clean batches from the threshold val half against the confidence val half."""
+    rng = np.random.default_rng(cfg.SEED)
+    scores = []
+    for index in range(batches):
+        rows = rng.choice(reference.threshold_half, size=batch_size, replace=False)
+        scores.append(embedding_auc(reference.embedding_valref, reference.val["embedding"][rows], cfg.SEED + index))
+    return scores
 
 
 def compute(batches: int = BOOTSTRAP_BATCHES, batch_size: int = BATCH_SIZE) -> dict[str, Any]:
@@ -66,17 +81,23 @@ def compute(batches: int = BOOTSTRAP_BATCHES, batch_size: int = BATCH_SIZE) -> d
         "embedding": _summary(embedding),
         "pixel": _summary(pixel),
         "confidence": _summary(confidence),
+        EMBEDDING_VALREF: _summary(embedding_valref_scores(reference, batches, batch_size)),
     }
     return {
         "thresholds": {
             "embedding": clean["embedding"]["p99"],
             "pixel": -math.log10(PIXEL_ALPHA),
             "confidence": clean["confidence"]["p99"],
+            EMBEDDING_VALREF: clean[EMBEDDING_VALREF]["p99"],
         },
         "rules": {
             "embedding": "alarm when 5-fold CV ROC-AUC > threshold (99th percentile on clean val)",
             "pixel": "alarm when -log10(min KS p) > threshold, i.e. min p < 0.01/3",
             "confidence": "alarm when KS statistic > threshold (99th percentile on clean val)",
+            EMBEDDING_VALREF: (
+                "post-hoc: alarm when 5-fold CV ROC-AUC vs the val reference half > threshold "
+                "(99th percentile on the other val half)"
+            ),
         },
         "clean_bootstrap": clean,
         "bootstrap_batches": batches,
@@ -86,6 +107,10 @@ def compute(batches: int = BOOTSTRAP_BATCHES, batch_size: int = BATCH_SIZE) -> d
             "embedding_and_pixel": f"clean train images (n={len(reference.train['embedding'])})",
             "confidence": f"seeded half of clean val (n={len(reference.confidence_half)})",
             "clean_batches": "embedding/pixel: clean val; confidence: the other val half",
+            EMBEDDING_VALREF: (
+                f"post-hoc: embeddings of the confidence val half (n={len(reference.confidence_half)}); "
+                "clean batches from the other val half"
+            ),
         },
     }
 

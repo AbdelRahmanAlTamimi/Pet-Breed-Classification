@@ -4,6 +4,9 @@
 - Confidence reference: a seeded half of the clean val images. Train confidences are
   near 1.0 because the model saw those images, so they are not a fair reference. The
   other val half supplies the clean batches that set the confidence threshold.
+- Post-hoc ``embedding_valref`` reference: the embeddings of the same val half, added
+  after the clean-test scorecard showed train embeddings are too easy to tell apart
+  from any unseen image.
 """
 
 from __future__ import annotations
@@ -34,6 +37,10 @@ class Reference:
     @property
     def confidence(self) -> NDArray[np.floating]:
         return self.val["max_confidence"][self.confidence_half]
+
+    @property
+    def embedding_valref(self) -> NDArray[np.floating]:
+        return self.val["embedding"][self.confidence_half]
 
 
 def split_paths(split: str) -> list[Path]:

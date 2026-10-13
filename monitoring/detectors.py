@@ -9,6 +9,10 @@
 
 Thresholds for ``embedding`` and ``confidence`` come only from clean data (see
 ``monitoring.thresholds``).
+
+``embedding_valref`` is a post-hoc variant of ``embedding``, added after the clean-test
+scorecard: the same domain classifier, but with a seeded val half as the reference
+instead of train images. It is scored in the scorecard only, not in the live check.
 """
 
 from __future__ import annotations
@@ -28,6 +32,7 @@ from sklearn.preprocessing import StandardScaler
 from .features import PIXEL_STATS, Features
 
 DETECTORS = ("embedding", "pixel", "confidence")
+EMBEDDING_VALREF = "embedding_valref"
 PCA_COMPONENTS = 50
 CV_FOLDS = 5
 PIXEL_ALPHA = 0.01 / len(PIXEL_STATS)

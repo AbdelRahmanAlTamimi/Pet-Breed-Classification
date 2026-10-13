@@ -2,12 +2,14 @@
   "thresholds": {
     "embedding": 0.5398997994698728,
     "pixel": 2.4771212547196626,
-    "confidence": 0.09771739130434778
+    "confidence": 0.09771739130434778,
+    "embedding_valref": 0.5517445390596075
   },
   "rules": {
     "embedding": "alarm when 5-fold CV ROC-AUC > threshold (99th percentile on clean val)",
     "pixel": "alarm when -log10(min KS p) > threshold, i.e. min p < 0.01/3",
-    "confidence": "alarm when KS statistic > threshold (99th percentile on clean val)"
+    "confidence": "alarm when KS statistic > threshold (99th percentile on clean val)",
+    "embedding_valref": "post-hoc: alarm when 5-fold CV ROC-AUC vs the val reference half > threshold (99th percentile on the other val half)"
   },
   "clean_bootstrap": {
     "embedding": {
@@ -24,6 +26,11 @@
       "p50": 0.0646195652173913,
       "p99": 0.09771739130434778,
       "max": 0.1083695652173913
+    },
+    "embedding_valref": {
+      "p50": 0.48418224731580906,
+      "p99": 0.5517445390596075,
+      "max": 0.555907997038134
     }
   },
   "bootstrap_batches": 50,
@@ -32,6 +39,7 @@
   "reference": {
     "embedding_and_pixel": "clean train images (n=2944)",
     "confidence": "seeded half of clean val (n=368)",
-    "clean_batches": "embedding/pixel: clean val; confidence: the other val half"
+    "clean_batches": "embedding/pixel: clean val; confidence: the other val half",
+    "embedding_valref": "post-hoc: embeddings of the confidence val half (n=368); clean batches from the other val half"
   }
 }

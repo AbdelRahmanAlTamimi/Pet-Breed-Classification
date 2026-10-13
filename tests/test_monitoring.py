@@ -17,7 +17,8 @@ from monitoring.detectors import (
     pixel_score,
 )
 from monitoring.features import pixel_stats
-from monitoring.reference import val_halves
+from monitoring.reference import Reference, val_halves
+from monitoring.thresholds import embedding_valref_scores
 
 
 def _features(rng: np.random.Generator, count: int, shift: float = 0.0) -> dict[str, np.ndarray]:
@@ -85,6 +86,20 @@ def test_val_halves_are_disjoint_and_cover_everything() -> None:
     first, second = val_halves(11, seed=42)
     assert len(first) == 5
     assert sorted(np.concatenate([first, second]).tolist()) == list(range(11))
+
+
+def test_embedding_valref_scores_use_only_the_two_val_halves() -> None:
+    rng = np.random.default_rng(0)
+    val = _features(rng, 368)
+    # A far-away train set would give AUC near 1.0 if it were used as the reference.
+    train = _features(rng, 400, shift=3.0)
+    reference = Reference(train, val, *val_halves(368, seed=42))
+
+    scores = embedding_valref_scores(reference, batches=3, batch_size=100)
+
+    assert len(scores) == 3
+    assert scores == embedding_valref_scores(reference, batches=3, batch_size=100)
+    assert max(scores) < 0.65
 
 
 def test_batch_slices_drop_only_a_small_trailing_batch() -> None:
