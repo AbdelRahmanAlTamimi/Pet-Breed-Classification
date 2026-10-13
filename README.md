@@ -101,7 +101,7 @@ repository owner can do.
 | Evidently report on the latest batch | done | `reports/evidently_latest_batch.html` |
 | Drift check after every batch scoring run | done | `batch.py` (`--no-drift` skips) |
 | Prometheus exposes drift scores and p95 | done | API `/metrics` + Pushgateway gauges |
-| Grafana >= 3 panels, screenshot in README | done | provisioned 8-panel dashboard; `reports/grafana_dashboard.png`, shown in [Monitoring](#monitoring-and-drift-module-5) |
+| Grafana >= 3 panels, screenshot in README | done | provisioned 8-panel dashboard; `reports/grafana_dashboard.png` (2026-10-13, live `/predict` traffic: request rate, p95 under the 0.5 s line, abstain rate and confidence heatmap populated; drift panels empty), shown in [Monitoring](#monitoring-and-drift-module-5) |
 | Drift alert -> Airflow retraining DAG -> triggered run in README | partial | drift alarm -> guarded retrain -> triggered run `ba7419ee` shown below; no Airflow DAG |
 | Retraining quality gate: promote only if top-1 >= Production - 0.01 | done | `registry.promote_if_better`; a passing candidate gets `challenger` only, Production needs a human. The demo candidate (0.9470 vs 0.9497) passed |
 | Structured pruning, INT8 PTQ, QAT, distillation, optimization benchmark table, worse-row explanations | not done (out of scope) | owner decision |
@@ -438,11 +438,15 @@ panels: p95 latency with its 0.5 s line, request rate, one drift-score panel per
 detector with its threshold, abstain rate, a calibrated-confidence heatmap, and alarm
 status. After `down -v` and `up -d`, which removed both volumes, the dashboard (8
 panels, provisioned), the datasource and both alert rules came back.
-Screenshot (taken by the owner, time range 2026-10-11 20:00-21:59). The drift panels
-show the last batch of the [retraining run](#retraining-loop) (AUC 0.634, pixel score
-273.4, confidence KS 0.209); the demo batches, the `/predict` request rate and the p95
-series are not visible in this window, only the 0.5 s threshold line. Seven of the 8
-panels are in the frame; the alarm-status panel is not:
+Screenshot (taken by the owner on 2026-10-13 during live `/predict` traffic; range
+"Last 15 minutes", about 20:31-20:46, 10 s refresh). `/predict` 2xx runs at about
+4.3-4.6 req/s from about 20:38 to 20:44, `/health` 2xx stays below 1 req/s, and
+`/metrics` and unmatched 4xx stay near 0. The `/predict` p95 stays between about 50
+and 95 ms, well under the 0.5 s alert line. The abstain rate moves between 8% and 16%
+(mostly 13-15%), and the calibrated-confidence heatmap has most predictions in the
+0.99-1 bucket. The three drift panels show "No data": no batch drift check pushed
+scores in this window, and Prometheus held no `petbreed_drift_*` series when checked
+afterwards. Seven of the 8 panels are in the frame; the alarm-status panel is not:
 
 ![Grafana dashboard](reports/grafana_dashboard.png)
 
