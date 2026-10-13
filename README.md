@@ -265,7 +265,7 @@ limit).
 first run 1.47 -> 6.66; BentoML fixed 2.98 -> 7.42. In the first BentoML run the
 runnable scored a batch image by image, and the 50 ms latency budget was below
 the latency of one inference under load, so the adaptive batcher rejected 8.6% of
-`/predict` requests. After the fix BentoML has no failures, but its p95 is higher
+`/predict` requests (346 of 4,019; 7.7% of all 4,468 requests). After the fix BentoML has no failures, but its p95 is higher
 than FastAPI's at this load (110 ms vs 48 ms): batching adds queueing time, and
 with 50 users there is little concurrency to amortize it.
 
