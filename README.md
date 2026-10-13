@@ -566,21 +566,30 @@ Caveats, stated plainly:
 
 ## Final verification
 
-Run on 2026-10-11 at commit `146a496`:
+Run on 2026-10-13 at commit `defd96f` (later commits change only documentation):
 
-- `dvc repro train` after the phase 3-8 code changes: metrics identical to the shipped
-  run (top-1 0.9497282608695652). A second run was a no-op, and `dvc status` reported
-  "Data and pipelines are up to date."
-- Fresh `git clone` (default groups, no data or model artifacts): `uv run pytest`
-  gave 213 passed and 8 skipped (optional groups, or local data/artifacts absent),
-  with coverage 83.75% against the 70% gate. `ruff check`, `uv lock --check` and
-  actionlint were clean.
-- Fresh `uv venv` + `uv pip install -e .`: the package imports, loads `model.onnx` +
-  `model_meta.json` copied from `artifacts/` (sha256 matching `ci/model_sha256.txt`),
-  and predicts Abyssinian 0.979373 "confident".
-- `git status` was clean. No `.env`, `.onnx`, `.pt`, `.parquet` or `output.md` files
-  are tracked, and no non-placeholder value from the local env files appears in any
-  of the 136 tracked files.
+- Fresh `git clone` of `final-fixes` (default groups, no data or model artifacts):
+  `uv run pytest` gave 215 passed and 8 skipped (optional groups, or local
+  data/artifacts absent), with coverage 83.85% against the 70% gate. `ruff check`,
+  `uv lock --check` and actionlint 1.7.7 on `.github/workflows/ci.yml` were clean.
+- Docker Hub: `latest` and `sha-64b0774` have the same digest
+  `sha256:6598f14b…7af766`. With every local `pet-breed` image removed, the three
+  commands at the top returned Abyssinian 0.9793733225963039 "confident",
+  `model_version` `v2`, and `GET /metadata` reported sha256 `58165e21…f88f72`.
+- Registry: `get_model_version_by_alias` returns version 1 (run `d05c2f2b…`) for
+  `production` and version 2 (run `ba7419ee…`, `approval=pending`) for `challenger`;
+  the retrain loop's Production check against `artifacts/` passes.
+- DVC: see [Data versioning and CI](#data-versioning-and-ci). `dvc status` lists the
+  `train` stage as changed (`src`) until the owner re-runs `dvc repro train`.
+- No `.env`, `config.local`, `.onnx`, `.pt`, `.parquet` or `output.md` files are
+  tracked, and no secret value from the local env files or `.dvc/config.local`
+  appears in any of the 138 tracked files (the public `r2.dev` URL is in
+  `.dvc/config` by design).
+
+The previous verification (2026-10-11, commit `146a496`) also re-ran
+`dvc repro train` (metrics identical, top-1 0.9497282608695652) and installed the
+package with `uv pip install -e .` into a fresh venv (predicts Abyssinian 0.979373
+"confident").
 
 ## Reproduce
 
@@ -668,6 +677,7 @@ docker compose -f docker/docker-compose.monitoring.yml up -d                  # 
 | 3. Serving | BentoML batchable Runner, Locust, batch scoring, nginx canary; batching and rollback fixes; measurements | `9d5bd4a`, `9340734`, `795727a`, `cdf317d`, `a8196ef`, `cafa030` |
 | 4. Evaluation and CPU runtimes | one-shot final test evaluation and robustness; OpenVINO CPU path and benchmark; optimization out of scope | `78bea08`, `aab2b8d` |
 | 5. Monitoring and retraining | drift features, three detectors, scorecard, Evidently, `/metrics`, Prometheus/Pushgateway/Grafana, alerts; drift-triggered retraining loop | `15abeed`, phase-8 commit |
+| Final fixes (2026-10-13) | retrain gate sets `challenger`, Production back to version 1; post-hoc val-reference embedding detector and scorecard column; DVC sees `data/raw/*.dvc`; public DVC remote on R2; README: Docker Hub, registry, DVC, latency settings, screenshots, license | `7a44650`, `38e53a9`, `b801454`, `024f0f5`, `a16e7db`, `455a066`, `e051f60`-`defd96f` |
 
 ## Dataset and license
 
