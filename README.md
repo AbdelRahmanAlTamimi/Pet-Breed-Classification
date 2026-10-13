@@ -26,11 +26,11 @@ port 8000. Expected response shape (this one is model v2 on the val image
  "correlation_id":"5fb84e84-49e7-411c-8347-0e2cc45d7e3d","latency_ms":24.92}
 ```
 
-> **Docker Hub status:** the `latest` image on Docker Hub was pushed on 2026-10-05 and
-> predates model v2. CI pushes `latest` and `sha-<short>` when PR #4 is merged to
-> `main`, but only once the repository secrets `DOCKERHUB_USERNAME` and
-> `DOCKERHUB_TOKEN` exist. Until then, build v2 from source (see
-> [Reproduce](#reproduce)).
+The image is `abdelrahmanaltamimi/pet-breed`, pushed by CI from `main` as `latest` and
+`sha-<short>` (linux/amd64). On 2026-10-13, after removing every local `pet-breed` image,
+these three commands pulled `latest` (digest
+`sha256:6598f14b8649bc41b04ac7428743ada14be800c4be43467372cf38417e7af766`, the same as
+`sha-64b0774`) and returned the response above for `Abyssinian_10.jpg`.
 
 Other endpoints: `GET /health` returns `{"status":"healthy","model_version":"v2","num_classes":37}`.
 `GET /metadata` returns the temperature, threshold and sha256. `POST /predict/batch`
@@ -47,10 +47,10 @@ repository owner can do.
 |---|---|---|---|
 | 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `pip install -e .`, see [Final verification](#final-verification) |
 | 02 | API endpoint | done | `src/pet_breed_classification/api/`, `tests/test_api.py`; calibrated `/predict` with abstention |
-| 03 | Docker | partial | `Dockerfile`, `docker-compose.yml`; v2 builds and serves locally. Docker Hub `latest` is still pre-v2 until merge plus secrets (owner) |
+| 03 | Docker | done | `Dockerfile`, `docker-compose.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) pushed `latest` and `sha-64b0774` (digest `sha256:6598f14b…7af766`), serving v2; the 3 commands verified on 2026-10-13 |
 | 04 | MLflow tracking | done (screenshot owner) | 6 selection runs + final run + retrain run; `PetBreedClassifier` alias `production` (now version 2, see [Retraining loop](#retraining-loop)); `reports/mlflow_comparison.png` is the owner's to take |
 | 05 | DVC data versioning | partial | `dvc.yaml`, `dvc.lock`; `dvc repro train` reproduces top-1 exactly. No public remote: reviewers rebuild from the official archives (`data/README.md`) instead of `dvc pull` |
-| 06 | GitHub Actions CI/CD | partial | `.github/workflows/ci.yml`; PR run green (lint, test, quality-gate, docker build). Push to Docker Hub needs secrets and a merge (owner) |
+| 06 | GitHub Actions CI/CD | done | `.github/workflows/ci.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) on `main` after merging PR #4: lint, test, quality-gate and docker all green, `latest` and `sha-64b0774` pushed (digest `sha256:6598f14b…7af766`) |
 | 07 | Production serving | done | BentoML service `serving/`, Locust reports `reports/locust_*.html`, p95 below |
 | 08 | Monitoring | done (screenshot owner) | `monitoring/`, `reports/drift_scorecard.csv`, alert rules; `reports/grafana_dashboard.png` is the owner's to take |
 | 09 | Peer review | not done (owner) | written by the owner, not part of this repository |
@@ -78,7 +78,7 @@ repository owner can do.
 | Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1 got alias `production`; the retrain gate later moved it to version 2 |
 | Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | done | `data/raw/*.dvc`, `dvc.lock` |
 | `dvc repro` reproduces training within ±0.005 top-1 | done | difference 0.0 |
-| GitHub Actions: lint -> test -> docker build -> push on main | partial | push needs Docker Hub secrets (owner) |
+| GitHub Actions: lint -> test -> docker build -> push on main | done | [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455): `latest` and `sha-64b0774`, digest `sha256:6598f14b…7af766` |
 | CI fails if top-1 drops below baseline; documented | done | `scripts/quality_gate.py`, [Data versioning and CI](#data-versioning-and-ci) |
 
 ### Track C checklist: serving, monitoring, optimization
@@ -210,9 +210,13 @@ The previous shipped model (v1, ONNX sha256 `2695971d...d14a5d`) is kept locally
   `reports/metrics.json` < top-1 in `reports/baseline_metrics.json` - 0.01. The
   baseline is the shipped run's served-path val metrics, so for now the two files
   are equal. Pull requests only build the image. Pushes to `main` also push
-  `latest` and `sha-<short>` to Docker Hub, but only when the repository secrets
-  `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` exist.
+  `latest` and `sha-<short>` to Docker Hub (secrets `DOCKERHUB_USERNAME` and
+  `DOCKERHUB_TOKEN`).
 - First green PR run: https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38157794666
+- First push from `main` (CI #5, merge commit `64b0774`):
+  https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455.
+  `docker manifest inspect` shows the same digest for `latest` and `sha-64b0774`:
+  `sha256:6598f14b8649bc41b04ac7428743ada14be800c4be43467372cf38417e7af766`.
 
 ## Serving measurements (model v2)
 
@@ -571,7 +575,7 @@ docker compose -f docker/docker-compose.monitoring.yml up -d                  # 
 - On test, selective accuracy at the val-chosen threshold is 0.974, below the 0.98
   target, and it drops to 0.83-0.92 under severity-3 downscale, blur and JPEG corruptions.
 - Locust ran on the same host as the services, so client load affects the latencies.
-- Docker Hub `latest` predates v2 until PR #4 is merged with Docker Hub secrets set.
+- The Docker Hub image is built for linux/amd64 only.
 - GitGuardian flags commit `548b1db` (`docker/docker-compose.mlflow.yml`) as a
   "Generic Password". The line is the PostgreSQL URI built from `$$POSTGRES_USER` and
   `$$POSTGRES_PASSWORD` environment references, with no literal secret; the owner
