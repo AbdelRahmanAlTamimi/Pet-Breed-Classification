@@ -45,7 +45,7 @@ repository owner can do.
 
 | # | Area | Status | Evidence |
 |---|---|---|---|
-| 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `pip install -e .`, see [Final verification](#final-verification) |
+| 01 | Code & packaging | done | `pyproject.toml`, `src/pet_breed_classification/`; `uv pip install -e .` into a fresh venv on 2026-10-11, see [Final verification](#final-verification) |
 | 02 | API endpoint | done | `src/pet_breed_classification/api/`, `tests/test_api.py`; calibrated `/predict` with abstention |
 | 03 | Docker | done | `Dockerfile`, `docker-compose.yml`; [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455) pushed `latest` and `sha-64b0774` (digest `sha256:6598f14b…7af766`), serving v2; the 3 commands verified on 2026-10-13 |
 | 04 | MLflow tracking | done | 6 selection runs + final run + retrain run; `PetBreedClassifier`: alias `production` = version 1 (the shipped model), `challenger` = version 2 (`approval=pending`, see [Retraining loop](#retraining-loop)); comparison screenshot `reports/mlflow_comparison.png` |
