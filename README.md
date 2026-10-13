@@ -118,7 +118,7 @@ Full evidence and both Track C checklists: [docs/status.md](docs/status.md).
 
 ## Reproduce
 
-Needs uv, DVC (`uv tool install dvc`) and a GPU for training; `dvc repro` runs with MLflow off, so the MLflow stack is optional. Archive fallback and md5
+Needs uv, DVC (`uv tool install dvc`; the default remote is public HTTP, so no extra or credentials) and a GPU for training; `dvc repro` runs with MLflow off, so the MLflow stack is optional. Archive fallback and md5
 values: [data/README.md](data/README.md); every command: [docs/verification.md](docs/verification.md#reproduce).
 
 ```bash
