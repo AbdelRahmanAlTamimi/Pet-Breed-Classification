@@ -440,7 +440,8 @@ panels, provisioned), the datasource and both alert rules came back.
 Screenshot (taken by the owner, time range 2026-10-11 20:00-21:59). The drift panels
 show the last batch of the [retraining run](#retraining-loop) (AUC 0.634, pixel score
 273.4, confidence KS 0.209); the demo batches, the `/predict` request rate and the p95
-series are not visible in this window, only the 0.5 s threshold line:
+series are not visible in this window, only the 0.5 s threshold line. Seven of the 8
+panels are in the frame; the alarm-status panel is not:
 
 ![Grafana dashboard](reports/grafana_dashboard.png)
 
