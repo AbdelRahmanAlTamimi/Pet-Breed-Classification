@@ -147,24 +147,17 @@ sha256sum --check ci/model_sha256.txt && docker build -t pet-breed .
 │   ├── split_index.json                 # train / val / test split, seed 42
 │   └── raw/                             # DVC pointers to the two dataset archives
 ├── docker/
-│   ├── docker-compose.mlflow.yml        # MLflow + PostgreSQL + MinIO
-│   ├── docker-compose.monitoring.yml    # API, Prometheus, Pushgateway, Grafana
-│   ├── docker-compose.canary.yml        # nginx canary in front of two API backends
+│   ├── docker-compose.{mlflow,monitoring,canary}.yml  # MLflow, monitoring, canary stacks
 │   └── Dockerfile.mlflow, .env.example  # MLflow server image, env template
 ├── docs/
-│   ├── results.md                       # model selection, calibration, test evaluation
-│   ├── serving.md                       # Locust, canary, batch scoring, ORT vs OpenVINO
-│   ├── monitoring.md                    # drift detectors, scorecards, Grafana, retraining
-│   ├── verification.md                  # DVC/CI notes, final verification, all commands
-│   ├── status.md                        # full rubric evidence, checklists, changelog
-│   └── project_spec.md                  # course handbook
+│   ├── results.md, serving.md           # model results; serving and runtime measurements
+│   ├── monitoring.md, verification.md   # drift and retraining; DVC/CI checks, all commands
+│   └── status.md, project_spec.md       # full rubric evidence and changelog; course handbook
 ├── loadtest/locustfile.py               # Locust workload
 ├── monitoring/
 │   ├── features.py, reference.py        # per-image features, clean reference sets
-│   ├── detectors.py, thresholds.py      # drift detectors, clean-data thresholds
-│   ├── scorecard.py                     # detector scorecard on corrupted test batches
-│   ├── drift_check.py                   # per-batch check, Evidently report, Pushgateway
-│   ├── retrain_on_drift.py              # guarded retraining loop
+│   ├── detectors.py, thresholds.py, scorecard.py  # detectors, thresholds, scorecard
+│   ├── drift_check.py, retrain_on_drift.py  # per-batch drift check; guarded retraining
 │   └── grafana/, prometheus/            # provisioned dashboard, scrape config, alerts
 ├── notebooks/train_resnet50.ipynb       # first training notebook
 ├── reports/
@@ -176,8 +169,7 @@ sha256sum --check ci/model_sha256.txt && docker build -t pet-breed .
 ├── scripts/quality_gate.py              # CI quality gate
 ├── serving/
 │   ├── service.py, import_model.py      # BentoML service, model import
-│   ├── nginx/, rollback.sh              # canary config, rollback script
-│   └── README.md                        # serving how-to, canary rollout stages
+│   └── nginx/, rollback.sh, README.md    # canary config, rollback, rollout stages
 ├── src/pet_breed_classification/        # package: data, training, predictor, API, batch, registry
 └── tests/                               # pytest suite
 ```
