@@ -125,7 +125,8 @@ values: [data/README.md](data/README.md); every command: [docs/verification.md](
 uv sync
 dvc pull data/raw/annotations.tar.gz.dvc data/raw/images.tar.gz.dvc
 (cd data/raw && tar xzf images.tar.gz && tar xzf annotations.tar.gz)
-dvc pull && dvc repro                    # rest of the data; re-runs only stale stages
+dvc pull                                 # rest of the data; if r2.dev throttles it, go on anyway
+dvc repro                                # rebuilds what is missing; re-runs only stale stages
 cp docker/.env.example docker/.env       # then change the passwords
 docker compose -f docker/docker-compose.mlflow.yml up -d   # MLflow UI on http://127.0.0.1:5000
 mkdir -p artifacts && gh release download model-v2 --pattern model.onnx --pattern model_meta.json --dir artifacts
