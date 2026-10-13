@@ -11,7 +11,8 @@ Prometheus and Grafana, and a drift-triggered retraining loop gated by a human.
 
 ## Quickstart
 
-From a clone of this repository (Docker with Compose; the image is pulled from Docker Hub):
+Needs Docker with Compose v2. Clone first, so `docker-compose.yml` is present:
+`git clone https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification.git && cd Pet-Breed-Classification`.
 
 ```bash
 docker pull abdelrahmanaltamimi/pet-breed:latest
