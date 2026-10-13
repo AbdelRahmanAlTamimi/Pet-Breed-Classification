@@ -1,0 +1,4 @@
+[core]
+    remote = public
+['remote "public"']
+    url = https://pub-be75e098eb0e442f956ab1022663c51c.r2.dev
