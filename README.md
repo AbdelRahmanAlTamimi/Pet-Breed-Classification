@@ -77,7 +77,7 @@ repository owner can do.
 | MLflow comparison screenshot | done | `reports/mlflow_comparison.png`, shown in [MLflow runs](#mlflow-runs-and-model-selection) |
 | Best model registered as `PetBreedClassifier`, promoted to Production | done | version 1 (the shipped model) holds alias `production`; the retrain candidate, version 2, holds `challenger` with `approval=pending` |
 | Images, manifest and corrupted sets tracked with DVC; `dvc status` clean | partial | `data/raw/*.dvc`, `dvc.lock`; all data pushed to the R2 remote (`dvc status -c -r storage`: in sync). `dvc status` lists only `train` (`changed deps: src`, from phase-10.1) until the owner re-runs `dvc repro train` |
-| `dvc repro` reproduces training within ±0.005 top-1 | done | difference 0.0 |
+| `dvc repro` reproduces training within ±0.005 top-1 | done (2026-10-11) | difference 0.0 at `146a496`; not re-run on this branch, where `train` is stale |
 | GitHub Actions: lint -> test -> docker build -> push on main | done | [CI #5](https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/actions/runs/38265330455): `latest` and `sha-64b0774`, digest `sha256:6598f14b…7af766` |
 | CI fails if top-1 drops below baseline; documented | done | `scripts/quality_gate.py`, [Data versioning and CI](#data-versioning-and-ci) |
 
