@@ -437,8 +437,10 @@ panels: p95 latency with its 0.5 s line, request rate, one drift-score panel per
 detector with its threshold, abstain rate, a calibrated-confidence heatmap, and alarm
 status. After `down -v` and `up -d`, which removed both volumes, the dashboard (8
 panels, provisioned), the datasource and both alert rules came back.
-Screenshot (taken by the owner, time range 2026-10-11 20:00-21:59, the demo and the
-retraining run below):
+Screenshot (taken by the owner, time range 2026-10-11 20:00-21:59). The drift panels
+show the last batch of the [retraining run](#retraining-loop) (AUC 0.634, pixel score
+273.4, confidence KS 0.209); the demo batches, the `/predict` request rate and the p95
+series are not visible in this window, only the 0.5 s threshold line:
 
 ![Grafana dashboard](reports/grafana_dashboard.png)
 
