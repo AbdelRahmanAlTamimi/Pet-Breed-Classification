@@ -655,6 +655,7 @@ docker compose -f docker/docker-compose.monitoring.yml up -d                  # 
 
 Oxford-IIIT Pet Dataset: O. M. Parkhi, A. Vedaldi, A. Zisserman and C. V. Jawahar,
 "Cats and Dogs", IEEE Conference on Computer Vision and Pattern Recognition (CVPR),
-2012. https://www.robots.ox.ac.uk/~vgg/data/pets/. The dataset is distributed under
-the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0);
-the owner should verify this license line against the dataset page before submission.
+2012. https://www.robots.ox.ac.uk/~vgg/data/pets/. The dataset page (checked on
+2026-10-13) states: "The dataset is available to download for commercial/research
+purposes under a Creative Commons Attribution-ShareAlike 4.0 International License.
+The copyright remains with the original owners of the images."
