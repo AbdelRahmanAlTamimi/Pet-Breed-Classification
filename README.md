@@ -325,7 +325,7 @@ and macro-F1: `reports/robustness.csv`.
 | motion_blur | 0.866 / 0.752 / 0.967 | 0.794 / 0.588 / 0.947 | 0.625 / 0.300 / 0.920 |
 
 Brightness shifts cost at most 4 points of top-1. Downscaling, blur and heavy JPEG
-cost up to 40 points. Abstention absorbs part of the damage, since coverage falls
+cost up to 40.2 points (Gaussian blur severity 3: 0.516 vs 0.918 clean). Abstention absorbs part of the damage, since coverage falls
 faster than selective accuracy, but for downscale, blur and JPEG selective accuracy still drops to 0.83-0.92 at
 severity 3, so the threshold does not hold its 0.98 promise under these shifts.
 
