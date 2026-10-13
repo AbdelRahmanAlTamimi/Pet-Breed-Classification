@@ -462,6 +462,19 @@ probability: 2.4e-6. On this CPU, OpenVINO FP32 was slower than ONNX Runtime at 
 1 (p95 +4.4 ms), so the service keeps ONNX Runtime. No INT8 or other OpenVINO
 optimization was tried, since that is out of scope.
 
+**Why three ONNX Runtime p95 numbers differ.** They measure different things, and
+the settings below were read from the source files that produced them:
+
+| Source | p95 | Model | ORT threads | What is timed |
+|---|---|---|---|---|
+| Module 1, `reports/module-1.md` (`benchmark_serialization.py`) | 68.6 ms | v1 ResNet-50 (2026-10-05, before v2 existed) | `intra_op_num_threads=1`, `inter_op_num_threads=1` | engine call on preprocessed tensors, batch 1, 200 val images, 20 warm-up runs |
+| Phase 7, `reports/runtime_benchmark.json` (`benchmark_runtimes.py`) | 13.13 ms | v2 | `intra_op_num_threads=6`, `inter_op_num_threads=1` | engine call on preprocessed tensors, batch 1, 500 timed runs after 50 warm-up runs |
+| Locust, `reports/locust_fastapi.html` | 48 ms | v2 | ORT defaults (`predict.py` passes no `SessionOptions`) | end-to-end HTTP `/predict` (upload, decode, preprocess, inference, JSON) under 50 users, client on the same host |
+
+Single-threaded vs 6 threads explains most of the gap between the first two, and the
+Locust number adds HTTP, image decoding, preprocessing and queueing under concurrent
+load.
+
 ## Retraining loop
 
 Airflow is not used. The loop is `monitoring/retrain_on_drift.py`, called by the batch
