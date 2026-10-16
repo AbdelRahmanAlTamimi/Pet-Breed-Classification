@@ -1,0 +1,2 @@
+# Generated benchmark and monitoring reports should not dominate repository language stats.
+reports/*.html linguist-generated
