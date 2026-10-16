@@ -7,7 +7,6 @@ Oxford-IIIT Pet dataset. The model's confidence is calibrated, so a reported 0.9
 close to a real 95%. When the model is not confident enough it answers `"uncertain"`
 instead of guessing, because a few of these breeds are genuinely hard to tell apart.
 
-I built this as my final project for the MLOps Practitioner course (ITI × MLOps MENA).
 The model is a fine-tuned ResNet-50. Most of the work went into the system around it:
 
 - versioned data and a reproducible training pipeline (DVC)
