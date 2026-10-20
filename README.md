@@ -178,6 +178,18 @@ sha256sum --check ci/model_sha256.txt
 docker build -t pet-breed .
 ```
 
+The release is public, so `gh` is optional. The same two files with plain `curl`, which
+is also how to get the model for running the package outside Docker (the predictor
+raises `FileNotFoundError` for `artifacts/model_meta.json` until they are there):
+
+```bash
+mkdir -p artifacts
+base=https://github.com/AbdelRahmanAlTamimi/Pet-Breed-Classification/releases/download/model-v2
+curl -fL -o artifacts/model.onnx "$base/model.onnx"
+curl -fL -o artifacts/model_meta.json "$base/model_meta.json"
+sha256sum --check ci/model_sha256.txt
+```
+
 Every other command (BentoML, Locust, monitoring, batch scoring) is in
 [docs/verification.md](docs/verification.md#reproduce).
 
