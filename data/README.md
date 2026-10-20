@@ -41,8 +41,8 @@ dvc repro
 ```
 
 `r2.dev` URLs are rate-limited by Cloudflare and meant for light use, so a full pull of
-the 66,042 corrupted images can be throttled. If that happens, pull only the archives
-(first command) and rebuild the rest with `dvc repro`.
+the 66,042 corrupted images can be throttled. That is why the commands above pull only
+the two archives and rebuild the rest with `dvc repro`.
 
 The owner pushes with a separate S3 remote (`storage`) whose endpoint and credentials
 live only in the git-ignored `.dvc/config.local`.
