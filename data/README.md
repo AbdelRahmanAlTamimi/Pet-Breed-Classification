@@ -34,10 +34,10 @@ both archives, the corrupted test sets, the manifest and the `train` stage outpu
 install it once with `uv tool install dvc`.
 
 ```bash
-dvc pull data/raw/annotations.tar.gz.dvc data/raw/images.tar.gz.dvc   # 811 MB, the archives
-md5sum data/raw/annotations.tar.gz data/raw/images.tar.gz              # must match the table below
-cd data/raw && tar xzf images.tar.gz && tar xzf annotations.tar.gz && cd ../..
-dvc pull                                                               # everything else, incl. 66,042 corrupted images
+dvc pull data/raw/annotations.tar.gz.dvc data/raw/images.tar.gz.dvc
+cd data/raw && tar xzf images.tar.gz && tar xzf annotations.tar.gz
+cd ../..
+dvc repro
 ```
 
 `r2.dev` URLs are rate-limited by Cloudflare and meant for light use, so a full pull of
