@@ -144,21 +144,21 @@ fired ([details](docs/monitoring.md#monitoring-and-drift-module-5)):
 
 ## Reproduce it from scratch
 
-You need uv, DVC (`uv tool install dvc`), Docker Compose v2, a logged-in `gh` CLI, a GPU
-for training, and about 4.4 GB of disk for the data. The DVC remote is public over
-HTTP, so no credentials are needed. Run `dvc` directly, since its stages call `uv run`.
+You need uv, DVC (`uv tool install dvc`), Docker Compose v2, a GPU for training, and
+about 4.4 GB of disk for the data. The DVC remote is public over HTTP, so no
+credentials are needed. Run `dvc` directly, since its stages call `uv run`.
 `dvc repro` runs with MLflow tracking turned off.
 
 ```bash
 uv sync
 dvc pull data/raw/annotations.tar.gz.dvc data/raw/images.tar.gz.dvc
 (cd data/raw && tar xzf images.tar.gz && tar xzf annotations.tar.gz)
-dvc pull      # the rest of the data; if r2.dev throttles it, continue anyway
-dvc repro     # rebuilds whatever is missing; after a full pull nothing is stale
+dvc repro     # regenerates the corruptions (about 1 min), then retrains (about 2.5 min on a GPU)
 ```
 
-The public `r2.dev` remote is rate-limited, so a full pull of the 66,042 corrupted
-images may be throttled. If DVC is not an option, you can rebuild everything from the
+Do not run a bare `dvc pull`: the public `r2.dev` remote rate-limits (HTTP 429) the
+66,042 corrupted images, so the pull fails. `dvc repro` rebuilds them from the two
+archives instead. If DVC is not an option, you can rebuild everything from the
 official archives: [data/README.md](data/README.md) has the URLs and md5 checksums.
 
 To run the MLflow stack (UI on `127.0.0.1:5000`; set real passwords in `docker/.env`
