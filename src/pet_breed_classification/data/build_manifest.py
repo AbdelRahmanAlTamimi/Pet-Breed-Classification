@@ -124,6 +124,7 @@ def main() -> None:
     if invalid_fields:
         raise ValueError(f"Manifest is missing fields: {sorted(invalid_fields)}")
 
+    cfg.MANIFEST_PATH.parent.mkdir(parents=True, exist_ok=True)
     cfg.MANIFEST_PATH.write_text(
         json.dumps(records, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",

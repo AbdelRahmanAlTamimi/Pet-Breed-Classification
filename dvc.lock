@@ -49,8 +49,8 @@ stages:
       size: 170179
     - path: src/pet_breed_classification/data/build_manifest.py
       hash: md5
-      md5: af91a205030d97c840ef113b3da14a4b
-      size: 3917
+      md5: e5d587396acb58257598d68f9a5b728f
+      size: 3981
     - path: src/pet_breed_classification/data/corruptions.py
       hash: md5
       md5: ce17a376e45d7d5e007e79c5b5ba2e10
@@ -104,8 +104,8 @@ stages:
       size: 89
     - path: src
       hash: md5
-      md5: 87cd3a1fa8cf0b3ee7230b4a641112e7.dir
-      size: 169142
+      md5: 2580abb9bfcb6e3fe13010e994ff923a.dir
+      size: 169206
       nfiles: 26
     params:
       params.yaml:
@@ -117,8 +117,8 @@ stages:
     outs:
     - path: artifacts/dvc_run/runs/dvc_train
       hash: md5
-      md5: 7df3f8cd563c301c50686ae65d424577.dir
-      size: 188989100
+      md5: 5492355dd5a2b21c5cfdccf46cc7532f.dir
+      size: 188989101
       nfiles: 6
     - path: reports/metrics.json
       hash: md5
