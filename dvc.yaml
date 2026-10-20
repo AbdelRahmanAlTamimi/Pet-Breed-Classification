@@ -47,6 +47,7 @@ stages:
       - data/split_index.json
       - data/label_map.json
       - data/raw/images
+      - data/processed/manifest.json
       - src
       - params.yaml
     params:
