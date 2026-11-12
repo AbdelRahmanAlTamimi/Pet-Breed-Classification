@@ -36,11 +36,15 @@ IR_PATH = cfg.ARTIFACTS_DIR / "openvino" / "model.xml"
 
 
 def cpu_model() -> str:
-    with open("/proc/cpuinfo", encoding="utf-8") as cpuinfo:
-        for line in cpuinfo:
-            if line.startswith("model name"):
-                return line.split(":", 1)[1].strip()
-    return platform.processor() or "unknown"
+    """Return the CPU model name; /proc/cpuinfo exists only on Linux."""
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8") as cpuinfo:
+            for line in cpuinfo:
+                if line.startswith("model name"):
+                    return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return platform.processor() or platform.machine() or "unknown"
 
 
 def latency_ms(predictor: PetBreedPredictor, inputs: list[np.ndarray], runs: int) -> dict[str, float]:
