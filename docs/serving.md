@@ -69,6 +69,10 @@ probability: 2.4e-6. On this CPU, OpenVINO FP32 was slower than ONNX Runtime at 
 1 (p95 +4.4 ms), so the service keeps ONNX Runtime. No INT8 or other OpenVINO
 optimization was tried, since that is out of scope.
 
+The engine ranking depends on the CPU, not on the engines alone. During grading, a
+reviewer ran the benchmark on Apple Silicon and measured OpenVINO faster than ONNX
+Runtime (p95 25.08 vs 34.96 ms), the reverse of the Intel i5-12500 result above.
+
 **Why three ONNX Runtime p95 numbers differ.** They measure different things, and
 the settings below were read from the source files that produced them:
 
