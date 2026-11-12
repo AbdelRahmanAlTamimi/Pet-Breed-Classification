@@ -61,15 +61,34 @@ jobs:
           gh release download model-v2 --repo "$GITHUB_REPOSITORY" \
             --pattern model.onnx --pattern model_meta.json --dir artifacts --clobber
           sha256sum --check ci/model_sha256.txt
-      - name: Build image
-        run: docker build -t pet-breed:ci .
+      # QEMU emulates arm64 so one amd64 runner builds both platforms.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build amd64 image
+        run: docker buildx build --platform linux/amd64 --tag pet-breed:ci --load .
+      - name: Smoke test /health
+        run: |
+          docker run --detach --name pet-breed-smoke --publish 8000:8000 pet-breed:ci
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:8000/health; then
+              docker rm --force pet-breed-smoke
+              exit 0
+            fi
+            echo "attempt ${attempt}: /health not ready"
+            sleep 2
+          done
+          docker logs pet-breed-smoke
+          exit 1
       # Pull requests only build; pushes to main and manual runs also publish.
-      - name: Push image
+      - name: Build amd64 and arm64 images
+        if: ${{ github.event_name == 'pull_request' || env.DOCKERHUB_USERNAME == '' || env.DOCKERHUB_TOKEN == '' }}
+        run: docker buildx build --platform linux/amd64,linux/arm64 .
+      - name: Push amd64 and arm64 images
         if: ${{ github.event_name != 'pull_request' && env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != '' }}
         run: |
           echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
           SHORT_SHA="${GITHUB_SHA::7}"
-          for tag in latest "sha-${SHORT_SHA}"; do
-            docker tag pet-breed:ci "$DOCKERHUB_USERNAME/pet-breed:${tag}"
-            docker push "$DOCKERHUB_USERNAME/pet-breed:${tag}"
-          done
+          docker buildx build --platform linux/amd64,linux/arm64 \
+            --tag "$DOCKERHUB_USERNAME/pet-breed:latest" \
+            --tag "$DOCKERHUB_USERNAME/pet-breed:sha-${SHORT_SHA}" \
+            --push .

@@ -30,7 +30,9 @@ curl --retry 30 --retry-delay 1 --retry-all-errors -F "file=@/path/to/pet.jpg" h
 ```
 
 The model ships inside the image, so nothing is built and nothing else is downloaded.
-The image is linux/amd64; I have not tested it on ARM machines such as Apple Silicon.
+The image is published for linux/amd64 and linux/arm64, so ARM machines such as Apple
+Silicon pull a native image. I checked the arm64 image under QEMU emulation on an x86
+host (same prediction as amd64), not on ARM hardware.
 
 This is a real response, for the validation image `Abyssinian_10.jpg`:
 

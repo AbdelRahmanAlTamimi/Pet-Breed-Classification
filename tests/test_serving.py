@@ -30,10 +30,11 @@ def test_bento_input_validation_and_rgba() -> None:
         _decode(b"x" * (cfg.MAX_UPLOAD_BYTES + 1))
 
 
+@pytest.mark.skipif(
+    not cfg.ONNX_PATH.is_file() or not cfg.MODEL_META_PATH.is_file() or not cfg.IMAGES_DIR.is_dir(),
+    reason="real ONNX artifacts or Oxford-IIIT Pet images unavailable",
+)
 def test_bento_predict_parity_on_validation_images() -> None:
-    if not cfg.ONNX_PATH.is_file() or not cfg.MODEL_META_PATH.is_file():
-        pytest.skip("real model artifacts are unavailable")
-
     split_index = json.loads(cfg.SPLIT_INDEX_PATH.read_text(encoding="utf-8"))
     validation_ids = [str(image_id) for image_id in split_index["val"][:50]]
     predictor = PetBreedPredictor.load()
@@ -55,10 +56,11 @@ def test_bento_predict_parity_on_validation_images() -> None:
         )
 
 
+@pytest.mark.skipif(
+    not cfg.ONNX_PATH.is_file() or not cfg.MODEL_META_PATH.is_file() or not cfg.IMAGES_DIR.is_dir(),
+    reason="real ONNX artifacts or Oxford-IIIT Pet images unavailable",
+)
 def test_bento_batch_matches_single_predictions() -> None:
-    if not cfg.ONNX_PATH.is_file() or not cfg.MODEL_META_PATH.is_file():
-        pytest.skip("real model artifacts are unavailable")
-
     split_index = json.loads(cfg.SPLIT_INDEX_PATH.read_text(encoding="utf-8"))
     paths = [cfg.IMAGES_DIR / f"{image_id}.jpg" for image_id in split_index["val"][:8]]
     runnable = PetBreedRunnable()

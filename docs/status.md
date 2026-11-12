@@ -95,7 +95,8 @@ repository owner can do.
 - On test, selective accuracy at the val-chosen threshold is 0.974, below the 0.98
   target, and it drops to 0.83-0.92 under severity-3 downscale, blur and JPEG corruptions.
 - Locust ran on the same host as the services, so client load affects the latencies.
-- The Docker Hub image is built for linux/amd64 only.
+- The Docker Hub image is built for linux/amd64 and linux/arm64. The arm64 image was
+  checked only under QEMU emulation on an x86 host, not on ARM hardware.
 - GitGuardian flags commit `548b1db` (`docker/docker-compose.mlflow.yml`) as a
   "Generic Password". The line is the PostgreSQL URI built from `$$POSTGRES_USER` and
   `$$POSTGRES_PASSWORD` environment references, with no literal secret; the owner
